@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0a0a0a;
+  --card: #111111;
+  --border: #222222;
+  --accent: #9b59b6;
+  --accent-hover: #8e44ad;
+  --text: #e5e5e5;
+  --muted: #666666;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  background-color: var(--background);
+  color: var(--text);
+  font-family: system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+textarea,
+input {
+  background-color: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  outline: none;
+}
+
+textarea:focus,
+input:focus {
+  border-color: var(--accent);
+}
+
+audio {
+  width: 100%;
+  filter: invert(0);
+}
+
+audio::-webkit-media-controls-panel {
+  background-color: #1a1a1a;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(155, 89, 182, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(155, 89, 182, 0);
+  }
+}
+
+.btn-loading {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
