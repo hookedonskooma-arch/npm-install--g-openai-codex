@@ -1,0 +1,10 @@
+# C++ compiled binaries
+vocal_preset
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
