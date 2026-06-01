@@ -6,48 +6,74 @@ actor StudioAPIClient {
     private var baseURL: String = UserDefaults.standard.string(forKey: "studioURL") ?? ""
     private var password: String = UserDefaults.standard.string(forKey: "studioPassword") ?? ""
 
+    private let session: URLSession = {
+        let config = URLSessionConfiguration.default
+        config.httpCookieStorage = HTTPCookieStorage.shared
+        config.httpShouldSetCookies = true
+        return URLSession(configuration: config)
+    }()
+
     func configure(baseURL: String, password: String) {
-        self.baseURL = baseURL
-        UserDefaults.standard.set(baseURL, forKey: "studioURL")
+        self.baseURL = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         self.password = password
+        UserDefaults.standard.set(self.baseURL, forKey: "studioURL")
         UserDefaults.standard.set(password, forKey: "studioPassword")
     }
 
-    // First authenticate (set session cookie), then generate
     func generate(prompt: String, style: String, title: String, mode: GenerationMode) async throws -> String {
-        // Login to get session cookie
         try await login()
-
-        let url = URL(string: "\(baseURL)/api/generate")!
+        let url = try validURL("/api/generate")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let modeString = mode.rawValue == "C++ Directive" ? "cpp" : "text"
-        let body = GenerateRequest(prompt: prompt, style: style, title: title, mode: modeString)
-        req.httpBody = try JSONEncoder().encode(body)
-
-        let (data, response) = try await URLSession.shared.data(for: req)
+        req.httpBody = try JSONEncoder().encode(
+            GenerateRequest(prompt: prompt, style: style, title: title,
+                            mode: mode == .cpp ? "cpp" : "text")
+        )
+        let (data, response) = try await session.data(for: req)
         guard (response as? HTTPURLResponse)?.statusCode == 200 else {
             throw APIError.serverError(String(data: data, encoding: .utf8) ?? "unknown")
         }
-        let result = try JSONDecoder().decode(GenerateResponse.self, from: data)
-        return result.songId
+        return try JSONDecoder().decode(GenerateResponse.self, from: data).songId
     }
 
     func pollStatus(songId: String) async throws -> StatusResponse {
-        let url = URL(string: "\(baseURL)/api/status/\(songId)")!
-        let (data, _) = try await URLSession.shared.data(from: url)
+        let url = try validURL("/api/status/\(songId)")
+        let (data, _) = try await session.data(from: url)
         return try JSONDecoder().decode(StatusResponse.self, from: data)
     }
 
+    func saveToLibrary(id: String, title: String, prompt: String, style: String,
+                       audioURL: String, imageURL: String?) async throws {
+        let url = try validURL("/api/library")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var body: [String: String?] = [
+            "id": id, "title": title, "prompt": prompt,
+            "style": style, "audio_url": audioURL
+        ]
+        body["image_url"] = imageURL
+        req.httpBody = try JSONEncoder().encode(body)
+        _ = try? await session.data(for: req)
+    }
+
     private func login() async throws {
-        guard !password.isEmpty, !baseURL.isEmpty else { throw APIError.notConfigured }
-        let url = URL(string: "\(baseURL)/api/login")!
+        guard !password.isEmpty else { throw APIError.notConfigured }
+        let url = try validURL("/api/login")
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(["password": password])
-        _ = try await URLSession.shared.data(for: req)
+        _ = try await session.data(for: req)
+    }
+
+    private func validURL(_ path: String) throws -> URL {
+        guard !baseURL.isEmpty, let url = URL(string: baseURL + path) else {
+            throw APIError.notConfigured
+        }
+        return url
     }
 }
 
@@ -57,8 +83,10 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .notConfigured: return "Studio URL and password not configured. Tap the \u{2699} icon."
-        case .serverError(let msg): return "Server error: \(msg)"
+        case .notConfigured:
+            return "Studio URL not configured — tap the \u{2699} icon to set it."
+        case .serverError(let msg):
+            return "Server error: \(msg)"
         }
     }
 }

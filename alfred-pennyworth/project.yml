@@ -17,12 +17,14 @@ targets:
   AlfredPennyworthApp:
     type: application
     platform: macOS
-    bundleIdPrefix: com.studio
     bundleId: com.studio.alfredpennyworth
     deploymentTarget: "12.0"
     sources:
       - path: AlfredPennyworthApp
       - path: Shared
+    dependencies:
+      - target: AlfredPennyworthExtension
+        embed: true
     settings:
       base:
         PRODUCT_NAME: AlfredPennyworth
@@ -31,19 +33,18 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: AlfredPennyworthApp/Info.plist
-    dependencies:
-      - target: AlfredPennyworthExtension
-        embed: true
+        CODE_SIGN_ENTITLEMENTS: AlfredPennyworthApp/AlfredPennyworthApp.entitlements
 
   AlfredPennyworthExtension:
     type: app-extension
     platform: macOS
-    bundleIdPrefix: com.studio
     bundleId: com.studio.alfredpennyworth.extension
     deploymentTarget: "12.0"
     sources:
       - path: AlfredPennyworthExtension
       - path: Shared
+    dependencies:
+      - sdk: Accelerate.framework
     settings:
       base:
         PRODUCT_NAME: AlfredPennyworthExtension

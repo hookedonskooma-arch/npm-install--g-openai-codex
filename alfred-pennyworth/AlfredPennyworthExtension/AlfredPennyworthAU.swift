@@ -1,3 +1,4 @@
+import Accelerate
 import AudioToolbox
 import AVFoundation
 import CoreAudioKit
@@ -6,73 +7,77 @@ public class AlfredPennyworthAU: AUAudioUnit {
     private var outputBus: AUAudioUnitBus!
     private var _outputBusses: AUAudioUnitBusArray!
 
-    // Shared audio buffer — written on background thread, read on render thread
-    var pcmBuffer: AVAudioPCMBuffer?
+    // Written on main thread after download; read on render thread.
+    // Buffer pointer is stable once set (we hold the strong ref below).
+    private var currentBuffer: AVAudioPCMBuffer?
     var playheadFrame: AVAudioFramePosition = 0
     var isPlaying: Bool = false
+    var gain: Float = 1.0
 
-    public override init(componentDescription: AudioComponentDescription,
-                         options: AudioComponentInstantiationOptions = []) throws {
+    public override init(
+        componentDescription: AudioComponentDescription,
+        options: AudioComponentInstantiationOptions = []
+    ) throws {
         try super.init(componentDescription: componentDescription, options: options)
-
-        let stereoFormat = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
-        outputBus = try AUAudioUnitBus(format: stereoFormat)
+        let stereo = AVAudioFormat(standardFormatWithSampleRate: 44100, channels: 2)!
+        outputBus = try AUAudioUnitBus(format: stereo)
+        outputBus.maximumChannelCount = 2
         _outputBusses = AUAudioUnitBusArray(audioUnit: self, busType: .output, busses: [outputBus])
     }
 
     public override var outputBusses: AUAudioUnitBusArray { _outputBusses }
+    public override var canProcessInPlace: Bool { false }
 
     public override func allocateRenderResources() throws {
         try super.allocateRenderResources()
+        // If a buffer was loaded before resources were allocated, resample it now
+        // to match the negotiated host format.
+        if let buf = currentBuffer, buf.format != outputBus.format {
+            currentBuffer = resample(buf, to: outputBus.format) ?? buf
+        }
     }
-
-    public override func deallocateRenderResources() {
-        super.deallocateRenderResources()
-    }
-
-    public override var canProcessInPlace: Bool { false }
 
     public override var internalRenderBlock: AUInternalRenderBlock {
         return { [weak self] _, _, frameCount, _, outputData, _, _ in
-            guard let self = self,
+            let out = UnsafeMutableAudioBufferListPointer(outputData)
+
+            guard let self,
                   self.isPlaying,
-                  let buffer = self.pcmBuffer,
-                  let channelData = buffer.floatChannelData else {
-                // Output silence on all channels in the buffer list
-                var bufferIndex = 0
-                var mutableOutputData = outputData
-                while mutableOutputData.pointee.mNumberBuffers > UInt32(bufferIndex) {
-                    let audioBuffer = mutableOutputData.pointee.mBuffers
-                    if let ptr = audioBuffer.mData {
+                  let buffer = self.currentBuffer,
+                  let channelData = buffer.floatChannelData
+            else {
+                for i in 0..<out.count {
+                    if let ptr = out[i].mData {
                         memset(ptr, 0, Int(frameCount) * MemoryLayout<Float>.size)
                     }
-                    bufferIndex += 1
-                    mutableOutputData = UnsafeMutablePointer<AudioBufferList>(
-                        OpaquePointer(mutableOutputData.advanced(by: 1))
-                    )
                 }
                 return noErr
             }
 
-            let remaining = Int(buffer.frameLength) - Int(self.playheadFrame)
-            let framesToCopy = min(Int(frameCount), remaining)
-            let channelCount = Int(min(buffer.format.channelCount, 2))
+            let gain = self.gain
+            let remaining = max(0, Int(buffer.frameLength) - Int(self.playheadFrame))
+            let toCopy = min(Int(frameCount), remaining)
+            let srcChannels = Int(buffer.format.channelCount)
+            let dstChannels = out.count
 
-            for channel in 0..<channelCount {
-                let src = channelData[channel].advanced(by: Int(self.playheadFrame))
-                // Access the correct buffer in the AudioBufferList for this channel
-                let audioBufferPtr: UnsafeMutableAudioBufferListPointer = UnsafeMutableAudioBufferListPointer(outputData)
-                if channel < audioBufferPtr.count,
-                   let dst = audioBufferPtr[channel].mData?.assumingMemoryBound(to: Float.self) {
-                    memcpy(dst, src, framesToCopy * MemoryLayout<Float>.size)
-                    if framesToCopy < Int(frameCount) {
-                        memset(dst.advanced(by: framesToCopy), 0,
-                               (Int(frameCount) - framesToCopy) * MemoryLayout<Float>.size)
+            for ch in 0..<dstChannels {
+                guard let dst = out[ch].mData?.assumingMemoryBound(to: Float.self) else { continue }
+                let srcCh = min(ch, srcChannels - 1)   // upmix mono → stereo
+                if toCopy > 0 {
+                    let src = channelData[srcCh].advanced(by: Int(self.playheadFrame))
+                    if gain == 1.0 {
+                        memcpy(dst, src, toCopy * MemoryLayout<Float>.size)
+                    } else {
+                        vDSP_vsmul(src, 1, [gain], dst, 1, vDSP_Length(toCopy))
                     }
+                }
+                if toCopy < Int(frameCount) {
+                    memset(dst.advanced(by: toCopy), 0,
+                           (Int(frameCount) - toCopy) * MemoryLayout<Float>.size)
                 }
             }
 
-            self.playheadFrame += AVAudioFramePosition(framesToCopy)
+            self.playheadFrame += AVAudioFramePosition(toCopy)
             if self.playheadFrame >= AVAudioFramePosition(buffer.frameLength) {
                 self.isPlaying = false
                 self.playheadFrame = 0
@@ -83,7 +88,9 @@ public class AlfredPennyworthAU: AUAudioUnit {
     }
 
     func loadBuffer(_ buffer: AVAudioPCMBuffer) {
-        pcmBuffer = buffer
+        let targetFormat = outputBus.format
+        let final = (buffer.format == targetFormat) ? buffer : (resample(buffer, to: targetFormat) ?? buffer)
+        currentBuffer = final
         playheadFrame = 0
         isPlaying = true
     }
@@ -91,5 +98,27 @@ public class AlfredPennyworthAU: AUAudioUnit {
     func stopPlayback() {
         isPlaying = false
         playheadFrame = 0
+    }
+
+    // MARK: - Resampling
+
+    private func resample(_ buffer: AVAudioPCMBuffer, to format: AVAudioFormat) -> AVAudioPCMBuffer? {
+        guard let converter = AVAudioConverter(from: buffer.format, to: format) else { return nil }
+        let ratio = format.sampleRate / buffer.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 1
+        guard let output = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: capacity) else { return nil }
+
+        var inputConsumed = false
+        var convError: NSError?
+        converter.convert(to: output, error: &convError) { _, outStatus in
+            if inputConsumed {
+                outStatus.pointee = .endOfStream
+                return nil
+            }
+            outStatus.pointee = .haveData
+            inputConsumed = true
+            return buffer
+        }
+        return convError == nil ? output : nil
     }
 }
