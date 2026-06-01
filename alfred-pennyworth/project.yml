@@ -1,0 +1,55 @@
+name: AlfredPennyworth
+options:
+  bundleIdPrefix: com.studio
+  deploymentTarget:
+    macOS: "12.0"
+  xcodeVersion: "15.0"
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MACOSX_DEPLOYMENT_TARGET: "12.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  AlfredPennyworthApp:
+    type: application
+    platform: macOS
+    bundleIdPrefix: com.studio
+    bundleId: com.studio.alfredpennyworth
+    deploymentTarget: "12.0"
+    sources:
+      - path: AlfredPennyworthApp
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: AlfredPennyworth
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: AlfredPennyworthApp/Info.plist
+    dependencies:
+      - target: AlfredPennyworthExtension
+        embed: true
+
+  AlfredPennyworthExtension:
+    type: app-extension
+    platform: macOS
+    bundleIdPrefix: com.studio
+    bundleId: com.studio.alfredpennyworth.extension
+    deploymentTarget: "12.0"
+    sources:
+      - path: AlfredPennyworthExtension
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: AlfredPennyworthExtension
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "12.0"
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: AlfredPennyworthExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: AlfredPennyworthExtension/AlfredPennyworthExtension.entitlements
