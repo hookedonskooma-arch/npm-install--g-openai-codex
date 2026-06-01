@@ -149,7 +149,7 @@ export default function HomePage() {
             }
             rows={mode === "cpp" ? 12 : 6}
             className={`w-full bg-[#111] border border-[#222] p-3 text-sm resize-y focus:outline-none focus:border-[#9b59b6] transition-colors ${
-              mode === "cpp" ? "font-mono text-[#9b59b6]" : "text-[#e5e5e5]"
+              mode === "cpp" ? "font-mono text-[#a8ff78]" : "text-[#e5e5e5]"
             }`}
           />
           {mode === "cpp" && (
