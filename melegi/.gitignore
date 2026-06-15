@@ -1,0 +1,4 @@
+build/
+*.o
+*.a
+melegi_pipeline
