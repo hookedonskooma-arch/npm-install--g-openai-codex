@@ -9,7 +9,7 @@ DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 bot = commands.Bot(command_prefix="!", intents=commands.Intents.all())
 
 @bot.event
-dasync def on_ready():
+async def on_ready():
     print(f"Logged in as {bot.user.name}")
 
 # Load slash command and agent extensions here in future
