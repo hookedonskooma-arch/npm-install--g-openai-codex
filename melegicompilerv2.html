@@ -1,0 +1,2834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MELEGI Compiler v2</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #222;
+            --border-hover: #333;
+            --text: #f5f5f5;
+            --text-dim: #999;
+            --text-muted: #666;
+            --gold: #d4af37;
+            --gold-light: #e5bf47;
+            --green: #4db33f;
+            --green-light: #5fc94f;
+            --red: #cc4444;
+            --blue: #5b8dd9;
+            --orange: #cc7a44;
+            --mono: 'IBM Plex Mono', 'SF Mono', 'Fira Code', monospace;
+            --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        html, body {
+            width: 100%; height: 100%;
+            font-family: var(--sans);
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        .app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* ─── HEADER ─── */
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .logo {
+            font-family: var(--mono);
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--gold);
+            letter-spacing: -0.5px;
+        }
+
+        .header-center {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .transport {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .transport button {
+            width: 36px; height: 36px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.15s;
+        }
+
+        .transport button:hover { border-color: var(--gold); }
+        .transport button.active { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+
+        .bpm-display {
+            font-family: var(--mono);
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--text);
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .bpm-label {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .drift-badge {
+            font-family: var(--mono);
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 3px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            min-width: 140px;
+            text-align: center;
+        }
+
+        .status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ─── MAIN LAYOUT ─── */
+        .main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* ─── LEFT PANEL: INPUT ─── */
+        .panel-input {
+            width: 280px;
+            min-width: 220px;
+            flex-shrink: 1;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 10px 16px;
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .tab-bar {
+            display: flex;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            font-family: var(--mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+
+        .tab:hover { color: var(--text-dim); }
+        .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+        .tab-content {
+            flex: 1;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .tab-content.active { display: flex; }
+
+        #notationInput {
+            flex: 1;
+            background: var(--bg);
+            border: none;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 12px;
+            line-height: 1.7;
+            padding: 12px 16px;
+            outline: none;
+            resize: none;
+        }
+
+        #notationInput::placeholder { color: #444; }
+
+        .char-counter {
+            padding: 4px 16px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            text-align: right;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+        }
+
+        /* Drop zones */
+        .drop-zones {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+        }
+
+        .drop-zone {
+            border: 1px dashed var(--border);
+            border-radius: 4px;
+            padding: 20px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--gold);
+            background: rgba(212, 175, 55, 0.04);
+        }
+
+        .drop-zone.loaded {
+            border-style: solid;
+            border-color: var(--green);
+            background: rgba(77, 179, 63, 0.04);
+        }
+
+        .drop-zone-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .drop-zone-sub {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        /* Reference selector */
+        .reference-list {
+            flex: 1;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+        }
+
+        .ref-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .ref-item:hover { border-color: var(--border-hover); }
+        .ref-item.active { border-color: var(--gold); background: rgba(212, 175, 55, 0.04); }
+
+        .ref-name {
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .ref-detail {
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+
+        .ref-centroid {
+            margin-left: auto;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--gold);
+        }
+
+        /* ─── CENTER: VISUALIZATION ─── */
+        .panel-viz {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .viz-top {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .canvas-wrap {
+            flex: 1;
+            position: relative;
+            min-height: 0;
+        }
+
+        .canvas-wrap canvas {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+        }
+
+        .viz-overlay {
+            position: absolute;
+            top: 8px; left: 12px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
+
+        .viz-mode-toggle {
+            position: absolute;
+            top: 8px; right: 12px;
+            display: flex;
+            gap: 4px;
+        }
+
+        .viz-mode-btn {
+            padding: 3px 8px;
+            font-family: var(--mono);
+            font-size: 10px;
+            background: rgba(10, 10, 10, 0.7);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .viz-mode-btn.active { color: var(--gold); border-color: var(--gold); }
+
+        /* Meters row */
+        .meters-row {
+            display: flex;
+            height: 48px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            flex-shrink: 0;
+        }
+
+        .meter {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 0 14px;
+            border-right: 1px solid var(--border);
+        }
+
+        .meter:last-child { border-right: none; }
+
+        .meter-label {
+            font-family: var(--mono);
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .meter-value {
+            font-family: var(--mono);
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            height: 3px;
+            background: var(--border);
+            flex-shrink: 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: var(--green);
+            transition: width 0.05s linear;
+        }
+
+        /* Prompt dock */
+        .prompt-dock {
+            height: 208px;
+            border-top: 1px solid var(--border);
+            background: var(--surface);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .prompt-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .prompt-tabs {
+            display: flex;
+            gap: 4px;
+        }
+
+        .prompt-tab {
+            padding: 5px 9px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            background: var(--bg);
+            color: var(--text-muted);
+            font-family: var(--mono);
+            font-size: 10px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .prompt-tab.active {
+            color: var(--gold);
+            border-color: var(--gold);
+        }
+
+        .prompt-actions {
+            display: flex;
+            gap: 6px;
+        }
+
+        .prompt-action {
+            padding: 6px 9px;
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            background: var(--bg);
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 10px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .prompt-action:hover { border-color: var(--gold); color: var(--text); }
+
+        #promptOutput {
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+            resize: none;
+            border: none;
+            outline: none;
+            background: #0d0d0d;
+            color: var(--text);
+            font-family: var(--mono);
+            font-size: 11px;
+            line-height: 1.55;
+            padding: 10px 12px;
+        }
+
+        /* ─── RIGHT PANEL: CONTROLS ─── */
+        .panel-controls {
+            width: 260px;
+            min-width: 200px;
+            flex-shrink: 1;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid var(--border);
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        .ctrl-section {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ctrl-title {
+            font-family: var(--mono);
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .ctrl-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .ctrl-row:last-child { margin-bottom: 0; }
+
+        .ctrl-label {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text-dim);
+        }
+
+        .ctrl-value {
+            font-family: var(--mono);
+            font-size: 11px;
+            color: var(--text);
+            min-width: 50px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+            margin: 6px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px;
+            border-radius: 50%;
+            background: var(--gold);
+            cursor: pointer;
+        }
+
+        select, input[type="number"] {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 8px;
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 11px;
+            outline: none;
+            width: 100%;
+        }
+
+        select:focus, input[type="number"]:focus { border-color: var(--gold); }
+
+        /* Action buttons */
+        .actions {
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: var(--mono);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.15s;
+            border: 1px solid;
+            text-align: center;
+        }
+
+        .btn-compile {
+            background: var(--gold);
+            color: var(--bg);
+            border-color: var(--gold);
+        }
+        .btn-compile:hover { background: var(--gold-light); }
+
+        .btn-detonate {
+            background: var(--red);
+            color: var(--text);
+            border-color: var(--red);
+        }
+        .btn-detonate:hover { background: #dd5555; }
+        .btn-detonate.active { animation: detonate-pulse 0.5s infinite; }
+
+        @keyframes detonate-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .btn-export {
+            background: var(--green);
+            color: var(--bg);
+            border-color: var(--green);
+        }
+        .btn-export:hover { background: var(--green-light); }
+
+        .btn-secondary {
+            background: var(--bg);
+            color: var(--text-dim);
+            border-color: var(--border);
+        }
+        .btn-secondary:hover { border-color: var(--border-hover); color: var(--text); }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Export presets */
+        .export-presets {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px;
+        }
+
+        .export-preset {
+            padding: 6px 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 3px;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-dim);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.15s;
+        }
+
+        .export-preset:hover { border-color: var(--border-hover); color: var(--text); }
+        .export-preset.active { border-color: var(--gold); color: var(--gold); }
+
+        /* Band meter bars */
+        .band-meters {
+            display: flex;
+            gap: 3px;
+            height: 40px;
+            align-items: flex-end;
+            padding: 4px 0;
+        }
+
+        .band-bar {
+            flex: 1;
+            min-height: 2px;
+            border-radius: 1px;
+            transition: height 0.1s;
+        }
+
+        /* Log */
+        .log-area {
+            flex: 1;
+            padding: 8px 16px;
+            overflow-y: auto;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .log-entry { margin-bottom: 2px; }
+        .log-entry.success { color: var(--green); }
+        .log-entry.warn { color: var(--orange); }
+        .log-entry.error { color: var(--red); }
+        .log-entry .log-time { color: #444; margin-right: 6px; }
+
+        /* ─── FOOTER ─── */
+        footer {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 6px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            font-family: var(--mono);
+            font-size: 10px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+    <!-- HEADER -->
+    <header>
+        <div class="logo">&#9670; MELEGI v2</div>
+        <div class="header-center">
+            <div class="transport">
+                <button id="btnPlay" title="Play">&#9654;</button>
+                <button id="btnStop" title="Stop">&#9632;</button>
+            </div>
+            <div style="text-align:center">
+                <div class="bpm-display" id="bpmDisplay">122</div>
+                <div class="bpm-label">BPM &middot; HALF-TIME 61</div>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="drift-badge" id="driftBadge">
+                <span class="status-dot" id="driftDot" style="background:var(--text-muted)"></span>
+                <span id="driftText">IDLE</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN -->
+    <div class="main">
+        <!-- LEFT PANEL -->
+        <div class="panel-input">
+            <div class="tab-bar">
+                <div class="tab active" data-tab="notation">Notation</div>
+                <div class="tab" data-tab="samples">Samples</div>
+                <div class="tab" data-tab="refs">References</div>
+            </div>
+
+            <!-- Notation tab -->
+            <div class="tab-content active" id="tab-notation">
+                <textarea id="notationInput" placeholder="[palm-mute] E5 1/4
+[sustain] Gmaj open 1/2
+[distort] A5 gallop 16th
+[breathe]
+
+[bass-sub] Drop E whole
+[drums] kick snare pocket
+[sample] dusty soul loop
+
+[ERUPTION] fuzz-wall breakdown"></textarea>
+                <div class="char-counter"><span id="charCount">0</span> / 2000</div>
+            </div>
+
+            <!-- Samples tab -->
+            <div class="tab-content" id="tab-samples">
+                <div class="drop-zones">
+                    <div class="drop-zone" data-layer="soulLoop">
+                        <span class="drop-zone-label">Soul / Sample Loop</span>
+                        <span class="drop-zone-sub">WAV &middot; MP3 &middot; AIFF</span>
+                    </div>
+                    <div class="drop-zone" data-layer="subBass">
+                        <span class="drop-zone-label">Sub Bass</span>
+                        <span class="drop-zone-sub">WAV &middot; MP3 &middot; AIFF</span>
+                    </div>
+                    <div class="drop-zone" data-layer="drumPocket">
+                        <span class="drop-zone-label">Drum Loop</span>
+                        <span class="drop-zone-sub">WAV &middot; MP3 &middot; AIFF</span>
+                    </div>
+                    <div class="drop-zone" data-layer="texture">
+                        <span class="drop-zone-label">Texture / Vinyl</span>
+                        <span class="drop-zone-sub">WAV &middot; MP3 &middot; AIFF</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- References tab -->
+            <div class="tab-content" id="tab-refs">
+                <div class="reference-list">
+                    <div class="ref-item active" data-ref="grouxx">
+                        <div>
+                            <div class="ref-name">GROUXX</div>
+                            <div class="ref-detail">Fingerprint target</div>
+                        </div>
+                        <span class="ref-centroid">757 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="navyBlue">
+                        <div>
+                            <div class="ref-name">Navy Blue</div>
+                            <div class="ref-detail">Emotional CASH center</div>
+                        </div>
+                        <span class="ref-centroid">780 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="ankhlejohn">
+                        <div>
+                            <div class="ref-name">Ankhlejohn</div>
+                            <div class="ref-detail">2nd Coming dark</div>
+                        </div>
+                        <span class="ref-centroid">720 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="grubby">
+                        <div>
+                            <div class="ref-name">Grubby Pawz</div>
+                            <div class="ref-detail">Drumless, raw sample</div>
+                        </div>
+                        <span class="ref-centroid">650 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="daringer">
+                        <div>
+                            <div class="ref-name">Daringer</div>
+                            <div class="ref-detail">Griselda raw</div>
+                        </div>
+                        <span class="ref-centroid">850 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="eTownConcrete">
+                        <div>
+                            <div class="ref-name">E.Town Concrete</div>
+                            <div class="ref-detail">ERUPTION primary</div>
+                        </div>
+                        <span class="ref-centroid">1800 Hz</span>
+                    </div>
+                    <div class="ref-item" data-ref="converge">
+                        <div>
+                            <div class="ref-name">Converge</div>
+                            <div class="ref-detail">Wall extreme</div>
+                        </div>
+                        <span class="ref-centroid">2200 Hz</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: VISUALIZATION -->
+        <div class="panel-viz">
+            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center">
+                <span>Output</span>
+                <span id="vizLabel" style="color:var(--text-muted);font-weight:400">Spectrum</span>
+            </div>
+            <div class="viz-top">
+                <div class="canvas-wrap">
+                    <canvas id="spectrumCanvas"></canvas>
+                    <canvas id="waveformCanvas" style="display:none"></canvas>
+                    <div class="viz-mode-toggle">
+                        <div class="viz-mode-btn active" data-viz="spectrum">Spectrum</div>
+                        <div class="viz-mode-btn" data-viz="waveform">Waveform</div>
+                        <div class="viz-mode-btn" data-viz="bands">Bands</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Meters -->
+            <div class="meters-row">
+                <div class="meter">
+                    <div class="meter-label">Centroid</div>
+                    <div class="meter-value" id="meterCentroid">&mdash;</div>
+                </div>
+                <div class="meter">
+                    <div class="meter-label">RMS</div>
+                    <div class="meter-value" id="meterRMS">&mdash;</div>
+                </div>
+                <div class="meter">
+                    <div class="meter-label">LUFS (est)</div>
+                    <div class="meter-value" id="meterLUFS">&mdash;</div>
+                </div>
+                <div class="meter">
+                    <div class="meter-label">Drift</div>
+                    <div class="meter-value" id="meterDrift">&mdash;</div>
+                </div>
+                <div class="meter">
+                    <div class="meter-label">Time</div>
+                    <div class="meter-value" id="meterTime">0:00</div>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <div class="prompt-dock">
+                <div class="prompt-toolbar">
+                    <div class="prompt-tabs">
+                        <button class="prompt-tab active" data-prompt="song">Song</button>
+                        <button class="prompt-tab" data-prompt="mix">Mix</button>
+                        <button class="prompt-tab" data-prompt="master">Master</button>
+                        <button class="prompt-tab" data-prompt="json">JSON</button>
+                    </div>
+                    <div class="prompt-actions">
+                        <button class="prompt-action" id="btnGeneratePrompts">Generate</button>
+                        <button class="prompt-action" id="btnCopyPrompt">Copy</button>
+                    </div>
+                </div>
+                <textarea id="promptOutput" spellcheck="false">Compile or generate to build the prompt stack.</textarea>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL -->
+        <div class="panel-controls">
+            <!-- Compile + Detonate -->
+            <div class="actions">
+                <button class="btn btn-compile" id="btnCompile">&#9889; Compile</button>
+                <button class="btn btn-detonate" id="btnDetonate" disabled>&#9760; Detonate ERUPTION</button>
+                <button class="btn btn-export" id="btnExport" disabled>&#8595; Export WAV</button>
+            </div>
+
+            <!-- CASH Controls -->
+            <div class="ctrl-section">
+                <div class="ctrl-title">CASH Bus (70%)</div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Soul Loop</span>
+                    <span class="ctrl-value" id="valSoul">65%</span>
+                </div>
+                <input type="range" id="sliderSoul" value="65" min="0" max="100">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Sub Bass</span>
+                    <span class="ctrl-value" id="valSub">50%</span>
+                </div>
+                <input type="range" id="sliderSub" value="50" min="0" max="100">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Drum Pocket</span>
+                    <span class="ctrl-value" id="valDrums">55%</span>
+                </div>
+                <input type="range" id="sliderDrums" value="55" min="0" max="100">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Vinyl / Texture</span>
+                    <span class="ctrl-value" id="valTexture">15%</span>
+                </div>
+                <input type="range" id="sliderTexture" value="15" min="0" max="100">
+            </div>
+
+            <!-- ERUPTION Controls -->
+            <div class="ctrl-section">
+                <div class="ctrl-title" style="color:var(--red)">ERUPTION Bus (30%)</div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Fuzz Wall</span>
+                    <span class="ctrl-value" id="valFuzz">30%</span>
+                </div>
+                <input type="range" id="sliderFuzz" value="30" min="0" max="100">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">HP Floor</span>
+                    <span class="ctrl-value" id="valHP">120 Hz</span>
+                </div>
+                <input type="range" id="sliderHP" value="120" min="60" max="300">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Detonate Dur</span>
+                    <span class="ctrl-value" id="valDetDur">4s</span>
+                </div>
+                <input type="range" id="sliderDetDur" value="4" min="2" max="16">
+            </div>
+
+            <!-- Lo-fi Texture -->
+            <div class="ctrl-section">
+                <div class="ctrl-title">Lo-fi Texture</div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Crackle</span>
+                    <span class="ctrl-value" id="valCrackle">4%</span>
+                </div>
+                <input type="range" id="sliderCrackle" value="4" min="0" max="20">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Tape Hiss</span>
+                    <span class="ctrl-value" id="valHiss">1%</span>
+                </div>
+                <input type="range" id="sliderHiss" value="1" min="0" max="10">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Wow/Flutter</span>
+                    <span class="ctrl-value" id="valWow">15%</span>
+                </div>
+                <input type="range" id="sliderWow" value="15" min="0" max="50">
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Warmth</span>
+                    <span class="ctrl-value" id="valWarmth">25%</span>
+                </div>
+                <input type="range" id="sliderWarmth" value="25" min="0" max="100">
+            </div>
+
+            <!-- Master -->
+            <div class="ctrl-section">
+                <div class="ctrl-title">Master</div>
+                <div class="ctrl-row">
+                    <span class="ctrl-label">Duration</span>
+                    <select id="selDuration">
+                        <option value="4">4s</option>
+                        <option value="8" selected>8s</option>
+                        <option value="16">16s</option>
+                        <option value="30">30s</option>
+                    </select>
+                </div>
+                <div class="ctrl-row" style="margin-top:8px">
+                    <span class="ctrl-label">Tuning</span>
+                    <select id="selTuning">
+                        <option value="dropE" selected>Drop E (8-str)</option>
+                        <option value="standard">Standard</option>
+                        <option value="dropD">Drop D</option>
+                    </select>
+                </div>
+                <div class="ctrl-row" style="margin-top:8px">
+                    <span class="ctrl-label">BPM</span>
+                    <input type="number" id="inputBPM" value="122" min="60" max="200" style="width:60px">
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div class="ctrl-section">
+                <div class="ctrl-title">Export Preset</div>
+                <div class="export-presets">
+                    <div class="export-preset active" data-preset="beatstars">BeatStars<br><span style="color:var(--text-muted)">-10 LUFS</span></div>
+                    <div class="export-preset" data-preset="suno">Suno Ref<br><span style="color:var(--text-muted)">-14 LUFS</span></div>
+                    <div class="export-preset" data-preset="logic">Logic Pro<br><span style="color:var(--text-muted)">-18 LUFS</span></div>
+                    <div class="export-preset" data-preset="archive">Archive<br><span style="color:var(--text-muted)">-14 LUFS 24b</span></div>
+                </div>
+            </div>
+
+            <!-- Log -->
+            <div class="panel-header">Log</div>
+            <div class="log-area" id="logArea"></div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer>
+        <span>MELEGI Compiler v2 &middot; GROUXX/MELEGI &middot; Spectral Target 757Hz</span>
+        <span id="footerStatus">Ready</span>
+    </footer>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// MELEGI COMPILER v2.1 — REAL-TIME ENGINE
+// Live Web Audio graph. ERUPTION detonates for real. Sliders move the sound.
+// Drift self-corrects. All 10 skills wired into one nervous system.
+// ════════════════════════════════════════════════════════════════════════════
+
+// ─── GLOBALS ───
+let audioCtx = null;
+let masterBuffer = null;
+let isPlaying = false;
+let currentSource = null;
+let playStartTime = 0;
+let analyserNode = null;
+let animFrameId = null;
+let rmsHistory = [];
+let loadedSamples = {};
+
+// Live audio graph nodes (for real-time control)
+let liveGraph = null;
+
+const FINGERPRINT = {
+    spectralCentroid: 757,
+    subBassGain: 1.4,
+    lowMidGain: 1.2,
+    midGain: 0.9,
+    highMidGain: 0.6,
+    airGain: 0.3,
+    targetLUFS: -13,
+    peakCeiling: -1,
+    dynamicRange: 8,
+    bpm: 122,
+    halfTimeFeel: 61,
+    swingAmount: 0.30,
+    stereoWidth: 0.35,
+    subMonoFloor: 120
+};
+
+const REFERENCE_TARGETS = {
+    grouxx: { centroid: 757, lpFreq: 3500, subShelf: { freq: 80, gain: 3.5 }, compressionRatio: 4, dynamicRange: 8, reverbTail: 0.3 },
+    navyBlue: { centroid: 780, lpFreq: 4000, subShelf: { freq: 80, gain: 3 }, compressionRatio: 3, dynamicRange: 11, reverbTail: 0.4 },
+    ankhlejohn: { centroid: 720, lpFreq: 3000, subShelf: { freq: 80, gain: 4 }, compressionRatio: 5, dynamicRange: 7, reverbTail: 0.2 },
+    grubby: { centroid: 650, lpFreq: 5000, subShelf: { freq: 60, gain: 5 }, compressionRatio: 1.5, dynamicRange: 14, reverbTail: 0 },
+    daringer: { centroid: 850, lpFreq: 6000, subShelf: { freq: 100, gain: 2 }, compressionRatio: 2, dynamicRange: 9, reverbTail: 0.3 },
+    eTownConcrete: { centroid: 1800, lpFreq: 8000, subShelf: { freq: 80, gain: 1 }, compressionRatio: 8, dynamicRange: 7, reverbTail: 0.15 },
+    converge: { centroid: 2200, lpFreq: 10000, subShelf: { freq: 80, gain: 0 }, compressionRatio: 12, dynamicRange: 5, reverbTail: 0 }
+};
+
+const EXPORT_PRESETS = {
+    beatstars: { targetLUFS: -10, sampleRate: 44100, bitDepth: 16, label: 'BeatStars Sale' },
+    suno: { targetLUFS: -14, sampleRate: 44100, bitDepth: 16, label: 'Suno Reference' },
+    logic: { targetLUFS: -18, sampleRate: 48000, bitDepth: 24, label: 'Logic Pro Session' },
+    archive: { targetLUFS: -14, sampleRate: 48000, bitDepth: 24, label: 'Archive (24-bit)' }
+};
+
+const TUNINGS = {
+    dropE: [41.2, 54.8, 73, 97.99, 130.81, 174.61, 220, 293.66],
+    standard: [82.41, 110, 146.83, 196, 246.94, 329.63, 440, 587.33],
+    dropD: [36.71, 48.99, 65.41, 87.31, 110, 146.83, 196, 261.63]
+};
+
+let activeReference = 'grouxx';
+let activeExportPreset = 'beatstars';
+let vizMode = 'spectrum';
+let activePrompt = 'song';
+let currentAnalysis = null;
+let detonationSource = null;
+let livePlaybackSources = [];
+
+const $id = id => document.getElementById(id);
+
+function initAudioContext() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 4096;
+        analyserNode.smoothingTimeConstant = 0.85;
+        analyserNode.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+}
+
+function log(msg, type = '') {
+    const area = $id('logArea');
+    const ts = new Date().toTimeString().slice(0, 8);
+    const el = document.createElement('div');
+    el.className = 'log-entry' + (type ? ' ' + type : '');
+    el.innerHTML = `<span class="log-time">${ts}</span>${msg}`;
+    area.appendChild(el);
+    area.scrollTop = area.scrollHeight;
+}
+
+function stopLivePlaybackSources() {
+    livePlaybackSources.forEach(source => {
+        try { source.stop(); } catch (e) {}
+    });
+    livePlaybackSources = [];
+}
+
+function getReferenceName(refKey = activeReference) {
+    const item = document.querySelector(`.ref-item[data-ref="${refKey}"] .ref-name`);
+    return item ? item.textContent.trim() : refKey;
+}
+
+function getPromptSettings() {
+    const bpm = parseInt($id('inputBPM').value) || 122;
+    const target = REFERENCE_TARGETS[activeReference];
+    const preset = EXPORT_PRESETS[activeExportPreset];
+    return {
+        bpm,
+        halfTime: Math.round(bpm / 2),
+        duration: parseFloat($id('selDuration').value),
+        tuning: $id('selTuning').selectedOptions[0].textContent,
+        reference: getReferenceName(),
+        target,
+        preset,
+        notation: $id('notationInput').value.trim(),
+        soul: parseInt($id('sliderSoul').value),
+        sub: parseInt($id('sliderSub').value),
+        drums: parseInt($id('sliderDrums').value),
+        texture: parseInt($id('sliderTexture').value),
+        fuzz: parseInt($id('sliderFuzz').value),
+        hp: parseInt($id('sliderHP').value),
+        crackle: parseInt($id('sliderCrackle').value),
+        hiss: parseInt($id('sliderHiss').value),
+        wow: parseInt($id('sliderWow').value),
+        warmth: parseInt($id('sliderWarmth').value)
+    };
+}
+
+function buildPromptStack(analysis = currentAnalysis) {
+    const s = getPromptSettings();
+    const a = analysis || {
+        centroid: s.target.centroid,
+        targetCentroid: s.target.centroid,
+        drift: 0,
+        lufs: FINGERPRINT.targetLUFS,
+        peak: 0,
+        duration: s.duration,
+        sampleRate: 44100
+    };
+    const driftPct = (a.drift * 100).toFixed(1);
+    const calibrationNote = a.calibration
+        ? `Auto-calibration nudged LP to ${a.calibration.lpFreq} Hz and sub shelf to +${a.calibration.subShelfGain.toFixed(1)} dB.`
+        : '';
+    const centroidMove = a.centroid > s.target.centroid + 100
+        ? 'darken the top end and lower the CASH lowpass'
+        : a.centroid < s.target.centroid - 100
+            ? 'open the CASH lowpass slightly while keeping air minimal'
+            : 'hold the current spectral center';
+    const eruptionLine = s.notation.toLowerCase().includes('[eruption]')
+        ? 'Include one gated ERUPTION breakdown with narrow fuzz wall and bilingual scream energy.'
+        : 'Keep ERUPTION silent until a deliberate breakdown cue.';
+
+    return {
+        song: [
+            `MELEGI SONG PROMPT`,
+            `Warm dusty underground rap bed at ${s.bpm} BPM with a ${s.halfTime} BPM body feel, ${s.tuning}.`,
+            `CASH layer is 70 percent of the record: felt Rhodes/soul loop ${s.soul}%, sub bass ${s.sub}%, swung drum pocket ${s.drums}%, vinyl texture ${s.texture}%.`,
+            `ERUPTION layer is max 30 percent: post-hardcore fuzz wall ${s.fuzz}%, high-passed at ${s.hp} Hz, gated until breakdown.`,
+            `${eruptionLine}`,
+            `Reference target: ${s.reference}; spectral centroid target ${s.target.centroid} Hz, measured ${a.centroid} Hz, drift ${driftPct}%.`,
+            calibrationNote,
+            `Mood words: warm, dusty, heavy, felt, centered. Avoid bright, wide, clean, digital sheen.`,
+            s.notation ? `Notation cues: ${s.notation.replace(/\s+/g, ' ')}` : `Notation cues: sparse soul loop, sub-forward bass, humanized kick/snare pocket.`
+        ].join('\n'),
+        mix: [
+            `MELEGI MIX PROMPT`,
+            `Route as two buses: CASH 0.70 into master, ERUPTION gated at 0.30 max.`,
+            `CASH chain: HP 40 Hz, low shelf +${s.target.subShelf.gain} dB near ${s.target.subShelf.freq} Hz, tape saturation, LP ${s.target.lpFreq} Hz, high shelf -6 dB at 6 kHz, bus compression ratio ${s.target.compressionRatio}:1.`,
+            `ERUPTION chain: HP ${Math.max(120, s.hp)} Hz minimum, asymmetric fuzz, short room, narrow stereo image, no sub content.`,
+            `Texture: crackle ${s.crackle}%, hiss ${s.hiss}%, wow/flutter ${s.wow}%, warmth ${s.warmth}%.`,
+            `Analysis says ${centroidMove}. Measured loudness ${Number(a.lufs).toFixed(1)} LUFS, peak ${Number(a.peak).toFixed(2)}.`,
+            `Keep sub mono below ${FINGERPRINT.subMonoFloor} Hz and stereo width near ${FINGERPRINT.stereoWidth}.`
+        ].join('\n'),
+        master: [
+            `MELEGI MASTER PROMPT`,
+            `Destination: ${s.preset.label}. Target ${s.preset.targetLUFS} LUFS, ${s.preset.sampleRate} Hz, ${s.preset.bitDepth}-bit WAV.`,
+            `Apply fingerprint EQ: sub shelf +3.5 dB at 80 Hz, low-mid +2 dB at 180 Hz, box cut -1.5 dB at 400 Hz, high-mid -3 dB at 3 kHz, air shelf -5 dB at 6 kHz.`,
+            `Final chain: gentle bus compression, true peak limiter ceiling -1.0 dBFS, LUFS normalization, ${s.preset.bitDepth === 16 ? 'TPDF dither' : '24-bit no dither needed'}.`,
+            `Measured before export: centroid ${a.centroid} Hz vs ${a.targetCentroid} Hz, drift ${driftPct}%, LUFS ${Number(a.lufs).toFixed(1)}, peak ${Number(a.peak).toFixed(2)}.`,
+            `Pass condition: drift below 15%, no clipping above -1.0 dBFS, warm/dusty/heavy/centered profile preserved.`
+        ].join('\n'),
+        json: JSON.stringify({ settings: s, analysis: a }, null, 2)
+    };
+}
+
+function renderPrompt(kind = activePrompt) {
+    activePrompt = kind;
+    const stack = buildPromptStack();
+    $id('promptOutput').value = stack[kind] || stack.song;
+}
+
+async function copyActivePrompt() {
+    const text = $id('promptOutput').value;
+    try {
+        await navigator.clipboard.writeText(text);
+        log(`Copied ${activePrompt} prompt`, 'success');
+    } catch (err) {
+        $id('promptOutput').select();
+        document.execCommand('copy');
+        log(`Copied ${activePrompt} prompt`, 'success');
+    }
+}
+
+// ═══════════════════════════════════════════════
+// SYNTHESIS: 808 Kick, Snare, Hi-Hat (SKILL 8)
+// ═══════════════════════════════════════════════
+
+function synth808Kick(sr, freq = 55, dur = 0.8, vol = 0.9) {
+    const n = Math.floor(dur * sr), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        const sweep = freq + 200 * Math.exp(-t * 18);
+        const click = (Math.random() * 2 - 1) * Math.exp(-t * 80) * 0.4;
+        d[i] = Math.tanh(((Math.sin(2 * Math.PI * sweep * t) * Math.exp(-t * 3.5)) + click) * vol * 1.2) / 1.2;
+    }
+    return d;
+}
+
+function synthSnare(sr, dur = 0.25, tune = 220, vol = 0.7) {
+    const n = Math.floor(dur * sr), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        d[i] = Math.tanh(((Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.55 +
+            Math.sin(2 * Math.PI * tune * t) * Math.exp(-t * 22) * 0.25 +
+            Math.sin(2 * Math.PI * 180 * t) * Math.exp(-t * 8) * 0.2) * vol * 1.1) / 1.1;
+    }
+    return d;
+}
+
+function synthHiHat(sr, type = 'closed', vol = 0.4) {
+    const dur = type === 'open' ? 0.25 : 0.06;
+    const n = Math.floor(dur * sr), d = new Float32Array(n);
+    const ratios = [1, 1.483, 1.932, 2.546, 3.175, 4.023];
+    for (let i = 0; i < n; i++) {
+        const t = i / sr, env = Math.exp(-t * (type === 'open' ? 12 : 35));
+        let s = 0;
+        for (const r of ratios) s += Math.sin(2 * Math.PI * 8000 * r * t);
+        d[i] = (s / ratios.length + (Math.random() * 2 - 1) * 0.3) * env * vol;
+    }
+    return d;
+}
+
+// ═══════════════════════════════════════════════
+// SYNTHESIS: Humanized Drum Pattern (SKILL 8)
+// ═══════════════════════════════════════════════
+
+function generateDrumPattern(sr, bpm, durSec) {
+    const beat = 60 / bpm, s16 = beat / 4;
+    const total = Math.floor(durSec * sr), out = new Float32Array(total);
+    const patLen = beat * 8;
+    const kicks = [0, beat * 2 + s16 * 0.5, beat * 4, beat * 6 + s16];
+    const snares = [beat * 2, beat * 6];
+    const ghosts = [beat * 1.25, beat * 3.5, beat * 5.75, beat * 7.25];
+    const hats = [];
+    for (let b = 0; b < 8; b++) { hats.push(beat * b); hats.push(beat * b + beat * 0.5 + s16 * (0.2 + Math.random() * 0.15)); }
+
+    const hd = (ms = 25) => (Math.random() * ms) / 1000;
+    const hv = (b, v = 0.1) => b * (1 - v + Math.random() * v * 2);
+    const mix = (arr, time) => { const s = Math.floor(time * sr); for (let i = 0; i < arr.length && s + i < total; i++) out[s + i] += arr[i]; };
+
+    let ls = 0;
+    while (ls < durSec) {
+        for (const t of kicks) { const tt = ls + t + hd(20); if (tt < durSec) mix(synth808Kick(sr, 55, 0.8, hv(0.85, 0.08)), tt); }
+        for (const t of snares) { const tt = ls + t + hd(25); if (tt < durSec) mix(synthSnare(sr, 0.25, 220, hv(0.75, 0.1)), tt); }
+        for (const t of ghosts) { const tt = ls + t + hd(15); if (tt < durSec) mix(synthSnare(sr, 0.15, 220, hv(0.2, 0.15)), tt); }
+        hats.forEach((t, idx) => { const tt = ls + t + hd(10); if (tt < durSec) mix(synthHiHat(sr, idx % 4 === 3 ? 'open' : 'closed', hv(0.4, 0.2)), tt); });
+        ls += patLen;
+    }
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// SYNTHESIS: Karplus-Strong (8-string guitar)
+// ═══════════════════════════════════════════════
+
+function karplusStrong(sr, freq, dur, amp = 0.3, damp = 0.995) {
+    const n = Math.floor(dur * sr), out = new Float32Array(n);
+    const bLen = Math.max(2, Math.floor(sr / freq)), buf = new Float32Array(bLen);
+    for (let i = 0; i < bLen; i++) buf[i] = Math.random() * 2 - 1;
+    let idx = 0;
+    for (let i = 0; i < n; i++) {
+        const s = buf[idx]; out[i] = s * amp;
+        const nx = (idx + 1) % bLen;
+        buf[idx] = (s + buf[nx]) * 0.5 * damp;
+        idx = nx;
+        const t = i / n;
+        out[i] *= t < 0.01 ? t / 0.01 : Math.exp(-2 * t);
+    }
+    return out;
+}
+
+function parseQualityFromLine(line = '') {
+    const text = line.toLowerCase();
+    if (text.includes('maj7')) return 'maj7';
+    if (text.includes('min7') || text.includes('m7')) return 'min7';
+    if (text.includes('sus4')) return 'sus4';
+    if (text.includes('sus2')) return 'sus2';
+    if (text.includes('add9')) return 'add9';
+    if (text.includes('dim')) return 'dim';
+    if (text.includes('maj')) return 'maj';
+    if (text.includes('min') || /\bm\b/.test(text)) return 'min';
+    if (text.includes('7')) return 'dom7';
+    if (text.includes('power') || text.includes('5)') || text.includes('5 ')) return 'power';
+    return 'single';
+}
+
+function buildVoicing(rootFreq, quality = 'single') {
+    const ratios = {
+        single: [1],
+        power: [1, 1.5],
+        maj: [1, 1.25, 1.5],
+        min: [1, 1.2, 1.5],
+        maj7: [1, 1.25, 1.5, 1.875],
+        min7: [1, 1.2, 1.5, 1.75],
+        dom7: [1, 1.25, 1.5, 1.75],
+        sus2: [1, 1.125, 1.5],
+        sus4: [1, 1.333, 1.5],
+        add9: [1, 1.25, 1.5, 1.125],
+        dim: [1, 1.2, 1.414, 1.6]
+    };
+    return ratios[quality] || ratios.single;
+}
+
+function renderExpressiveVoice(sr, freq, dur, amp = 0.3, drift = 0.002, noise = 0.02) {
+    const n = Math.floor(dur * sr), out = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        const glide = Math.sin(t * Math.PI * 2 * 0.35) * freq * drift;
+        const f = freq + glide;
+        const env = t < 0.02 ? t / 0.02 : Math.exp(-t * 1.9);
+        const body =
+            Math.sin(2 * Math.PI * f * t) * 0.38 +
+            Math.sin(2 * Math.PI * f * 2 * t) * 0.18 +
+            Math.sin(2 * Math.PI * f * 3 * t) * 0.08;
+        const breath = (Math.random() * 2 - 1) * noise * Math.exp(-t * 9);
+        out[i] = (body + breath) * env * amp;
+    }
+    return out;
+}
+
+function renderVoicedHarmony(sr, rootFreq, dur, quality = 'single', flavor = 'sustain') {
+    const voicing = buildVoicing(rootFreq, quality);
+    const out = new Float32Array(Math.floor(dur * sr));
+    voicing.forEach((ratio, idx) => {
+        const amp = Math.max(0.08, 0.24 - idx * 0.05);
+        const voice = flavor.includes('fuzz')
+            ? karplusStrong(sr, rootFreq * ratio, dur, amp, 0.992)
+            : renderExpressiveVoice(sr, rootFreq * ratio, dur, amp, 0.0015 + idx * 0.0005, 0.01 + idx * 0.004);
+        for (let i = 0; i < out.length && i < voice.length; i++) out[i] += voice[i];
+    });
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// SYNTHESIS: Rich Felt-Piano / Rhodes (CASH bed)
+// Generates real harmonic content in 200-1500Hz range
+// so the fingerprint EQ has proper material to shape
+// ═══════════════════════════════════════════════
+
+function generateSoulLoop(sr, dur, bpm) {
+    const n = Math.floor(dur * sr), out = new Float32Array(n);
+    const beat = 60 / bpm, bar = beat * 4;
+
+    // Soul chord progression — voiced in the 200-600Hz range for centroid pull
+    const chords = [
+        [261.63, 329.63, 392, 523.25],    // C4 E4 G4 C5
+        [293.66, 349.23, 440, 587.33],    // D4 F4 A4 D5
+        [233.08, 293.66, 349.23, 466.16], // Bb3 D4 F4 Bb4
+        [246.94, 311.13, 392, 493.88],    // B3 Eb4 G4 B4
+    ];
+
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        const barPhase = (t % (bar * 4)) / (bar * 4);
+        const chordIdx = Math.floor(barPhase * 4);
+        const chord = chords[chordIdx % chords.length];
+
+        let val = 0;
+        for (const freq of chord) {
+            // Rhodes EP: fundamental + 2nd + 3rd + 4th harmonics with decay
+            val += Math.sin(2 * Math.PI * freq * t) * 0.12;
+            val += Math.sin(2 * Math.PI * freq * 2 * t) * 0.06;
+            val += Math.sin(2 * Math.PI * freq * 3 * t) * 0.025;
+            val += Math.sin(2 * Math.PI * freq * 4 * t) * 0.01;
+        }
+
+        // Tremolo (classic Rhodes)
+        val *= 1 + Math.sin(2 * Math.PI * 4.2 * t) * 0.12;
+
+        // Chord envelope — key-down attack, slow release
+        const chordT = (barPhase * 4) % 1;
+        const env = chordT < 0.005 ? chordT / 0.005 : Math.exp(-chordT * 0.8);
+        val *= env;
+
+        // Overall gentle fade in/out
+        val *= Math.min(1, t / 0.3) * Math.min(1, (dur - t) / 0.3);
+        out[i] = val * 0.55;
+    }
+    return out;
+}
+
+function generateSubBass(sr, dur, bpm) {
+    const n = Math.floor(dur * sr), out = new Float32Array(n);
+    const beat = 60 / bpm;
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        const phase = (t % (beat * 4)) / (beat * 4);
+        // Sub with slight pitch swell on downbeat
+        const freq = 55 + Math.sin(phase * Math.PI * 2) * 3;
+        // Sub + warm 2nd harmonic
+        out[i] = (Math.sin(2 * Math.PI * freq * t) * 0.3 + Math.sin(2 * Math.PI * freq * 2 * t) * 0.08) *
+                 Math.min(1, t / 0.1) * Math.min(1, (dur - t) / 0.1);
+    }
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// SYNTHESIS: ERUPTION Fuzz Wall
+// ═══════════════════════════════════════════════
+
+function generateFuzzWall(sr, dur, freq = 41.2) {
+    const n = Math.floor(dur * sr), out = new Float32Array(n);
+    const freqs = [freq, freq * 1.5, freq * 2, freq * 2.5, freq * 3];
+    for (let i = 0; i < n; i++) {
+        const t = i / sr;
+        let val = 0;
+        for (const f of freqs) val += Math.sin(2 * Math.PI * f * t + Math.sin(t * 3) * 0.5);
+        out[i] = Math.tanh(val * 8) * 0.85 * 0.4;
+    }
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// LO-FI TEXTURE (SKILL 9)
+// ═══════════════════════════════════════════════
+
+function generateVinylCrackle(sr, dur, amt = 0.04) {
+    const n = Math.floor(dur * sr), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+        if (Math.random() < 0.0001 * amt * 10) {
+            const cl = Math.floor(Math.random() * 30 + 5);
+            for (let j = 0; j < cl && i + j < n; j++) d[i + j] += (Math.random() * 2 - 1) * Math.exp(-j * 0.3) * amt * 0.8;
+        }
+        d[i] += (Math.random() * 2 - 1) * amt * 0.008;
+    }
+    return d;
+}
+
+function generateTapeHiss(sr, dur, amt = 0.012) {
+    const n = Math.floor(dur * sr), d = new Float32Array(n);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * amt * 0.3;
+    return d;
+}
+
+// ═══════════════════════════════════════════════
+// OFFLINE DSP (SKILLS 3, 4, 6)
+// ═══════════════════════════════════════════════
+
+function applyWowFlutter(data, sr, wd = 0.0015, fd = 0.0008) {
+    const out = new Float32Array(data.length);
+    const wf = 0.8 + Math.random() * 0.4, ff = 8 + Math.random() * 4;
+    for (let i = 0; i < data.length; i++) {
+        const t = i / sr;
+        const d = Math.floor(Math.abs(Math.sin(2 * Math.PI * wf * t) * wd * sr + Math.sin(2 * Math.PI * ff * t) * fd * sr));
+        const si = i - d;
+        out[i] = si >= 0 && si < data.length ? data[si] : data[i];
+    }
+    return out;
+}
+
+function applyHarmonicSaturation(data, warmth = 0.25) {
+    const out = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i++) { const x = data[i]; out[i] = x - (warmth * x * x * x / 3) + (warmth * 0.1 * Math.pow(x, 5)); }
+    return out;
+}
+
+function applyTapeSaturation(data, amount = 0.3) {
+    const out = new Float32Array(data.length), d = 1 + amount * 3, norm = Math.tanh(d);
+    for (let i = 0; i < data.length; i++) out[i] = Math.tanh(data[i] * d) / norm;
+    return out;
+}
+
+function measureOfflineLUFS(data) {
+    let s = 0;
+    for (let i = 0; i < data.length; i++) s += data[i] * data[i];
+    const r = Math.sqrt(s / data.length);
+    return r > 0 ? 20 * Math.log10(r) - 0.691 : -60;
+}
+
+function normalizeLUFS(data, target) {
+    const cur = measureOfflineLUFS(data);
+    if (!isFinite(cur)) return data;
+    const g = Math.min(4, Math.max(0.1, Math.pow(10, (target - cur) / 20)));
+    const out = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i++) out[i] = Math.max(-1, Math.min(1, data[i] * g));
+    return out;
+}
+
+function applyLimiter(data, ceil = -1) {
+    const cl = Math.pow(10, ceil / 20), out = new Float32Array(data.length);
+    for (let i = 0; i < data.length; i++) out[i] = Math.abs(data[i]) > cl ? Math.sign(data[i]) * cl : data[i];
+    return out;
+}
+
+function interleaveStereo(left, right) {
+    const length = Math.min(left.length, right.length);
+    const out = new Float32Array(length * 2);
+    for (let i = 0; i < length; i++) {
+        out[i * 2] = left[i];
+        out[i * 2 + 1] = right[i];
+    }
+    return out;
+}
+
+function resampleLinear(data, sourceRate, targetRate) {
+    if (sourceRate === targetRate) return data;
+    const ratio = sourceRate / targetRate;
+    const newLength = Math.max(1, Math.round(data.length / ratio));
+    const out = new Float32Array(newLength);
+    for (let i = 0; i < newLength; i++) {
+        const src = i * ratio;
+        const idx = Math.floor(src);
+        const frac = src - idx;
+        const a = data[idx] || 0;
+        const b = data[Math.min(idx + 1, data.length - 1)] || 0;
+        out[i] = a + (b - a) * frac;
+    }
+    return out;
+}
+
+function measureSpectralCentroidFromSamples(data, sampleRate) {
+    const frameSize = 1024;
+    const hop = 2048;
+    const bins = 16;
+    const freqs = [];
+    const minFreq = 20;
+    const maxFreq = Math.min(20000, sampleRate / 2);
+    const logMin = Math.log10(minFreq);
+    const logMax = Math.log10(maxFreq);
+
+    for (let i = 0; i < bins; i++) {
+        const t = i / Math.max(1, bins - 1);
+        freqs.push(Math.pow(10, logMin + (logMax - logMin) * t));
+    }
+
+    let weighted = 0;
+    let energy = 0;
+
+    for (let offset = 0; offset + frameSize <= data.length; offset += hop) {
+        const frame = data.subarray(offset, offset + frameSize);
+        for (const freq of freqs) {
+            const k = Math.max(1, Math.round((frameSize * freq) / sampleRate));
+            const omega = (2 * Math.PI * k) / frameSize;
+            const cosine = Math.cos(omega);
+            const sine = Math.sin(omega);
+            const coeff = 2 * cosine;
+            let q0 = 0, q1 = 0, q2 = 0;
+            for (let i = 0; i < frame.length; i++) {
+                q0 = coeff * q1 - q2 + frame[i] * (0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (frame.length - 1)));
+                q2 = q1;
+                q1 = q0;
+            }
+            const power = q2 * q2 + q1 * q1 - coeff * q1 * q2;
+            const mag = Math.max(0, power) / frame.length;
+            weighted += freq * mag;
+            energy += mag;
+        }
+    }
+
+    return energy > 0 ? weighted / energy : 0;
+}
+
+async function saveBlob(blob, filename) {
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{ description: 'WAV audio', accept: { 'audio/wav': ['.wav'] } }]
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return { method: 'picker' };
+        } catch (err) {
+            if (err && err.name === 'AbortError') throw err;
+        }
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    try {
+        a.click();
+    } catch (err) {
+        window.open(url, '_blank', 'noopener');
+    }
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    return { method: 'anchor', url };
+}
+
+function autoCalibrateFingerprint(master, targetCentroid, sampleRate) {
+    const measured = measureSpectralCentroidFromSamples(master, sampleRate);
+    const drift = Math.abs(measured - targetCentroid) / targetCentroid;
+    let lp = REFERENCE_TARGETS[activeReference].lpFreq;
+    let sub = REFERENCE_TARGETS[activeReference].subShelf.gain;
+    let air = -6;
+    const ratio = targetCentroid / Math.max(1, measured);
+    const scale = Math.max(0.55, Math.min(1.8, Math.pow(ratio, 0.6)));
+
+    if (measured > targetCentroid + 80) {
+        lp = Math.max(1800, Math.round(lp / scale));
+        sub = Math.min(7, sub + Math.min(2.0, (measured - targetCentroid) / 500));
+        air = -8;
+    } else if (measured < targetCentroid - 80) {
+        lp = Math.min(15000, Math.round(lp * scale));
+        sub = Math.max(0.5, sub - Math.min(2.0, (targetCentroid - measured) / 500));
+        air = -3;
+    }
+
+    return { measured, drift, lp, sub, air };
+}
+
+// ═══════════════════════════════════════════════
+// REAL-TIME WEB AUDIO GRAPH (SKILL 2 architecture)
+// The CASH/ERUPTION signal chain as live nodes
+// ═══════════════════════════════════════════════
+
+function buildLiveGraph(ctx) {
+    // ── MASTER BUS ──
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 0.85;
+
+    // Master limiter
+    const masterLimiter = ctx.createDynamicsCompressor();
+    masterLimiter.threshold.value = -1; masterLimiter.knee.value = 0;
+    masterLimiter.ratio.value = 20; masterLimiter.attack.value = 0.001; masterLimiter.release.value = 0.1;
+
+    // Master compressor (glue)
+    const masterComp = ctx.createDynamicsCompressor();
+    masterComp.threshold.value = -12; masterComp.knee.value = 4;
+    masterComp.ratio.value = 3; masterComp.attack.value = 0.005; masterComp.release.value = 0.2;
+
+    masterGain.connect(masterLimiter);
+    masterLimiter.connect(masterComp);
+    masterComp.connect(analyserNode);
+
+    // ── CASH BUS (70%) ──
+    const cashGain = ctx.createGain();
+    cashGain.gain.value = 0.70;
+
+    // CASH processing: HP 40Hz → warmth shelf → tape saturator → dust LP → air killer → bus comp
+    const cashHP = ctx.createBiquadFilter();
+    cashHP.type = 'highpass'; cashHP.frequency.value = 40; cashHP.Q.value = 0.7;
+
+    const cashWarmth = ctx.createBiquadFilter();
+    cashWarmth.type = 'lowshelf'; cashWarmth.frequency.value = 200; cashWarmth.gain.value = 3.5;
+
+    const cashSaturator = ctx.createWaveShaper();
+    const satCurve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; satCurve[i] = Math.tanh(x * 1.8) / Math.tanh(1.8); }
+    cashSaturator.curve = satCurve; cashSaturator.oversample = '4x';
+
+    const cashDust = ctx.createBiquadFilter();
+    cashDust.type = 'lowpass'; cashDust.frequency.value = 3500; cashDust.Q.value = 0.5;
+
+    const cashAirKiller = ctx.createBiquadFilter();
+    cashAirKiller.type = 'highshelf'; cashAirKiller.frequency.value = 6000; cashAirKiller.gain.value = -6;
+
+    const cashComp = ctx.createDynamicsCompressor();
+    cashComp.threshold.value = -18; cashComp.knee.value = 6;
+    cashComp.ratio.value = 4; cashComp.attack.value = 0.003; cashComp.release.value = 0.15;
+
+    // Wire CASH chain
+    cashGain.connect(cashHP);
+    cashHP.connect(cashWarmth);
+    cashWarmth.connect(cashSaturator);
+    cashSaturator.connect(cashDust);
+    cashDust.connect(cashAirKiller);
+    cashAirKiller.connect(cashComp);
+    cashComp.connect(masterGain);
+
+    // ── CASH LAYER GAINS (individual levels into CASH bus) ──
+    const soulGain = ctx.createGain(); soulGain.gain.value = 0.65 * 0.45;
+    const subGainNode = ctx.createGain(); subGainNode.gain.value = 0.50 * 0.35;
+    const drumGainNode = ctx.createGain(); drumGainNode.gain.value = 0.55 * 0.35;
+    const notationGain = ctx.createGain(); notationGain.gain.value = 0.5;
+
+    soulGain.connect(cashGain);
+    subGainNode.connect(cashGain);
+    drumGainNode.connect(cashGain);
+    notationGain.connect(cashGain);
+
+    // ── TEXTURE (parallel to CASH bus, not in series) ──
+    const textureGain = ctx.createGain(); textureGain.gain.value = 0.15;
+    textureGain.connect(masterGain);
+
+    // ── ERUPTION BUS (30%) ──
+    const eruptionGateGain = ctx.createGain();
+    eruptionGateGain.gain.value = 0; // STARTS SILENT
+
+    const eruptionHP = ctx.createBiquadFilter();
+    eruptionHP.type = 'highpass'; eruptionHP.frequency.value = 120; eruptionHP.Q.value = 1.0;
+
+    const eruptionFuzz = ctx.createWaveShaper();
+    const fuzzCurve = new Float32Array(256);
+    for (let i = 0; i < 256; i++) { const x = (i * 2) / 256 - 1; fuzzCurve[i] = Math.tanh(x * 8) * 0.85; }
+    eruptionFuzz.curve = fuzzCurve; eruptionFuzz.oversample = '4x';
+
+    const eruptionLevel = ctx.createGain();
+    eruptionLevel.gain.value = 0.30;
+
+    // Wire ERUPTION chain
+    eruptionGateGain.connect(eruptionHP);
+    eruptionHP.connect(eruptionFuzz);
+    eruptionFuzz.connect(eruptionLevel);
+    eruptionLevel.connect(masterGain);
+
+    return {
+        masterGain, masterComp, masterLimiter,
+        cashGain, cashHP, cashWarmth, cashSaturator, cashDust, cashAirKiller, cashComp,
+        soulGain, subGainNode, drumGainNode, notationGain, textureGain,
+        eruptionGateGain, eruptionHP, eruptionFuzz, eruptionLevel,
+        sources: [] // track all sources for cleanup
+    };
+}
+
+function startLivePlayback(ctx) {
+    if (!liveGraph || !liveGraph.buffers) return false;
+
+    stopLivePlaybackSources();
+
+    const mapping = [
+        ['soul', liveGraph.soulGain],
+        ['sub', liveGraph.subGainNode],
+        ['drums', liveGraph.drumGainNode],
+        ['notation', liveGraph.notationGain],
+        ['texture', liveGraph.textureGain],
+        ['eruption', liveGraph.eruptionGateGain]
+    ];
+
+    mapping.forEach(([name, gainNode]) => {
+        const buffer = liveGraph.buffers[name];
+        if (!buffer || !gainNode) return;
+        const source = ctx.createBufferSource();
+        source.buffer = buffer;
+        source.loop = true;
+        source.connect(gainNode);
+        source.start(0);
+        livePlaybackSources.push(source);
+    });
+
+    return livePlaybackSources.length > 0;
+}
+
+// ═══════════════════════════════════════════════
+// COMPILE: Build buffers + live graph
+// ═══════════════════════════════════════════════
+
+async function compile() {
+    const ctx = initAudioContext();
+    const sr = ctx.sampleRate;
+    const bpm = parseInt($id('inputBPM').value) || 122;
+    const tuning = $id('selTuning').value;
+    const duration = parseFloat($id('selDuration').value);
+    const notation = $id('notationInput').value;
+    const ref = activeReference;
+
+    if (isPlaying) stop();
+
+    // Disconnect old live graph to avoid accumulating orphaned nodes
+    if (liveGraph) {
+        try {
+            [liveGraph.masterGain, liveGraph.masterLimiter, liveGraph.masterComp,
+             liveGraph.cashGain, liveGraph.cashHP, liveGraph.cashWarmth,
+             liveGraph.cashSaturator, liveGraph.cashDust, liveGraph.cashAirKiller,
+             liveGraph.cashComp, liveGraph.soulGain, liveGraph.subGainNode,
+             liveGraph.drumGainNode, liveGraph.notationGain, liveGraph.textureGain,
+             liveGraph.eruptionGateGain, liveGraph.eruptionHP,
+             liveGraph.eruptionFuzz, liveGraph.eruptionLevel
+            ].forEach(n => { try { n.disconnect(); } catch (_) {} });
+        } catch (_) {}
+        liveGraph = null;
+    }
+
+    log('Compiling...', 'warn');
+    $id('btnCompile').disabled = true;
+    $id('footerStatus').textContent = 'Compiling...';
+    await new Promise(r => setTimeout(r, 20));
+
+    const total = Math.floor(duration * sr);
+
+    // ── Generate layers as AudioBuffers ──
+    log('Generating soul loop (Rhodes EP)...', '');
+    const soulData = loadedSamples.soulLoop ? resampleToLength(loadedSamples.soulLoop, total) : generateSoulLoop(sr, duration, bpm);
+
+    log('Generating sub bass...', '');
+    const subData = loadedSamples.subBass ? resampleToLength(loadedSamples.subBass, total) : generateSubBass(sr, duration, bpm);
+
+    log('Generating drum pocket (humanized 122 half-time)...', '');
+    const drumData = loadedSamples.drumPocket ? resampleToLength(loadedSamples.drumPocket, total) : generateDrumPattern(sr, bpm, duration);
+
+    log('Parsing notation (Karplus-Strong)...', '');
+    const notationData = parseNotation(notation, sr, bpm, tuning, duration);
+
+    log('Generating lo-fi texture (crackle + hiss)...', '');
+    const crackleAmt = parseInt($id('sliderCrackle').value) / 100;
+    const hissAmt = parseInt($id('sliderHiss').value) / 100;
+    const crackleData = generateVinylCrackle(sr, duration, crackleAmt);
+    const hissData = generateTapeHiss(sr, duration, hissAmt);
+    const textureData = new Float32Array(total);
+    for (let i = 0; i < total; i++) textureData[i] = (crackleData[i] || 0) + (hissData[i] || 0);
+
+    log('Generating ERUPTION fuzz wall...', '');
+    const eruptionData = generateFuzzWall(sr, duration, TUNINGS[tuning][0]);
+
+    // Create AudioBuffers
+    function makeBuf(data) {
+        const buf = ctx.createBuffer(1, data.length, sr);
+        buf.getChannelData(0).set(data);
+        return buf;
+    }
+
+    const buffers = {
+        soul: makeBuf(soulData),
+        sub: makeBuf(subData),
+        drums: makeBuf(drumData),
+        notation: makeBuf(notationData),
+        texture: makeBuf(textureData),
+        eruption: makeBuf(eruptionData)
+    };
+
+    // ── Build live graph ──
+    log('Building CASH/ERUPTION signal chain (live Web Audio)...', '');
+    liveGraph = buildLiveGraph(ctx);
+    liveGraph.buffers = buffers;
+    liveGraph.duration = duration;
+
+    // Apply reference target to live graph
+    const target = REFERENCE_TARGETS[ref];
+    liveGraph.cashDust.frequency.value = target.lpFreq;
+    liveGraph.cashWarmth.gain.value = target.subShelf.gain;
+    liveGraph.eruptionHP.frequency.value = parseInt($id('sliderHP').value) || 120;
+
+    // ── Also build an offline master for export + static waveform ──
+    log('Rendering offline master for export...', '');
+    const wowAmt = parseInt($id('sliderWow').value) / 100;
+    const warmthAmt = parseInt($id('sliderWarmth').value) / 100;
+    const soulG = parseInt($id('sliderSoul').value) / 100;
+    const subG = parseInt($id('sliderSub').value) / 100;
+    const drumG = parseInt($id('sliderDrums').value) / 100;
+    const texG = parseInt($id('sliderTexture').value) / 100;
+
+    let cashBus = new Float32Array(total);
+    for (let i = 0; i < total; i++) {
+        cashBus[i] = soulData[i] * soulG * 0.45 + subData[i] * subG * 0.35 + drumData[i] * drumG * 0.35 + notationData[i] * 0.5;
+    }
+    if (warmthAmt > 0.01) cashBus = applyHarmonicSaturation(cashBus, warmthAmt);
+    if (wowAmt > 0.01) cashBus = applyWowFlutter(cashBus, sr, wowAmt * 0.01, wowAmt * 0.005);
+    cashBus = applyTapeSaturation(cashBus, 0.3);
+
+    // Offline fingerprint EQ (simple IIR LP + sub boost)
+    const lpF = target.lpFreq, rc = 1 / (2 * Math.PI * lpF), dt = 1 / sr, alph = dt / (rc + dt);
+    const sG = target.subShelf.gain / 6 + 1;
+    let prev = 0;
+    for (let i = 0; i < total; i++) { prev = prev + alph * (cashBus[i] - prev); const hi = cashBus[i] - prev; cashBus[i] = prev * sG - hi * 0.3; }
+
+    let master = new Float32Array(total);
+    const hasEruption = notation.toLowerCase().includes('[eruption]');
+    const hpFreq = parseInt($id('sliderHP').value) || 120;
+    const hpRc = 1 / (2 * Math.PI * hpFreq), hpA = hpRc / (hpRc + dt);
+    let hp = 0, hpIn = 0;
+    for (let i = 0; i < total; i++) {
+        let eVal = 0;
+        if (hasEruption) {
+            const raw = eruptionData[i] * (parseInt($id('sliderFuzz').value) / 100);
+            eVal = hpA * (hp + raw - hpIn); hp = eVal; hpIn = raw;
+        }
+        master[i] = cashBus[i] * 0.70 + eVal * 0.30 + textureData[i] * texG;
+    }
+    master = applyTapeSaturation(master, 0.15);
+    master = applyLimiter(master, -1);
+    let pk = 0;
+    for (let i = 0; i < total; i++) pk = Math.max(pk, Math.abs(master[i]));
+    if (pk > 0) { const nm = 0.9 / pk; for (let i = 0; i < total; i++) master[i] *= nm; }
+
+    masterBuffer = ctx.createBuffer(2, total, sr);
+    masterBuffer.getChannelData(0).set(master);
+    masterBuffer.getChannelData(1).set(master);
+
+    const lufs = measureOfflineLUFS(master);
+
+    const estCentroid = Math.round(measureSpectralCentroidFromSamples(master, sr));
+
+    log(`Compiled: ${duration}s @ ${sr}Hz`, 'success');
+    log(`Est. centroid: ${estCentroid}Hz (target: ${target.centroid}Hz)`, Math.abs(estCentroid - target.centroid) / target.centroid < 0.3 ? 'success' : 'warn');
+    log(`LUFS: ${lufs.toFixed(1)}`, 'success');
+    log('Live graph ready — sliders + ERUPTION active during playback', 'success');
+
+    const drift = Math.abs(estCentroid - target.centroid) / target.centroid;
+    currentAnalysis = {
+        centroid: estCentroid,
+        targetCentroid: target.centroid,
+        drift,
+        lufs,
+        peak: pk,
+        duration,
+        sampleRate: sr,
+        reference: getReferenceName(ref),
+        exportPreset: EXPORT_PRESETS[activeExportPreset].label
+    };
+
+    const calibration = autoCalibrateFingerprint(master, target.centroid, sr);
+    if (liveGraph) {
+        liveGraph.cashDust.frequency.value = calibration.lp;
+        liveGraph.cashWarmth.gain.value = calibration.sub;
+        liveGraph.cashAirKiller.gain.value = calibration.air;
+    }
+    currentAnalysis.calibration = {
+        lpFreq: calibration.lp,
+        subShelfGain: calibration.sub
+    };
+    if (calibration.drift > 0.15) {
+        log(`Auto-calibrated live chain: LP ${calibration.lp} Hz, sub shelf +${calibration.sub.toFixed(1)} dB`, 'warn');
+    }
+    updateDriftBadge(drift, estCentroid);
+    renderPrompt(activePrompt);
+
+    $id('btnCompile').disabled = false;
+    $id('btnExport').disabled = false;
+    $id('btnDetonate').disabled = false;
+    $id('footerStatus').textContent = 'Compiled — Live';
+    drawStaticWaveform(master);
+}
+
+function resampleToLength(buffer, targetLength) {
+    const srcRate = buffer.sampleRate;
+    const dstRate = audioCtx ? audioCtx.sampleRate : srcRate;
+    const srcData = buffer.getChannelData(0);
+    const resampled = resampleLinear(srcData, srcRate, dstRate);
+    const out = new Float32Array(targetLength);
+    for (let i = 0; i < targetLength; i++) out[i] = resampled[i % resampled.length];
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// NOTATION PARSER
+// ═══════════════════════════════════════════════
+
+function parseNotation(text, sr, bpm, tuning, duration) {
+    const lines = text.split('\n').filter(l => l.trim());
+    const beat = 60 / bpm, tuningFreqs = TUNINGS[tuning];
+    const total = Math.floor(duration * sr), out = new Float32Array(total);
+    const durMap = { 'whole': beat * 4, '1/1': beat * 4, '1/2': beat * 2, '1/4': beat, '1/8': beat / 2, '16th': beat / 4 };
+
+    let timePos = 0, eruptionActive = false;
+    for (const line of lines) {
+        const tm = line.trim().match(/\[([^\]]+)\]/);
+        if (!tm) continue;
+        const type = tm[1].toLowerCase();
+
+        let noteDur = beat;
+        for (const [k, v] of Object.entries(durMap)) if (line.toLowerCase().includes(k)) { noteDur = v; break; }
+
+        let freq = tuningFreqs[0];
+        const nm = line.match(/([A-G])(#|b)?(\d)?/);
+        if (nm) {
+            const base = { C: 130.81, D: 146.83, E: 164.81, F: 174.61, G: 196, A: 220, B: 246.94 };
+            const noteFreq = base[nm[1]];
+            if (noteFreq) {
+                freq = noteFreq;
+                if (nm[2] === '#') freq *= 1.0595;
+                if (nm[2] === 'b') freq /= 1.0595;
+                freq *= Math.pow(2, parseInt(nm[3] || '3') - 3);
+                if (!isFinite(freq) || freq <= 0) freq = tuningFreqs[0];
+            }
+        }
+
+        if (type === 'breathe' || type === 'rest') { timePos += noteDur; continue; }
+
+        const quality = parseQualityFromLine(line);
+        let noteData = null;
+        if (type.includes('palm')) noteData = renderVoicedHarmony(sr, freq, Math.min(noteDur, 0.18), quality === 'single' ? 'power' : quality, 'pluck');
+        else if (type.includes('sustain')) noteData = renderVoicedHarmony(sr, freq, noteDur, quality, 'sustain');
+        else if (type.includes('distort') || type.includes('fuzz')) {
+            noteData = renderVoicedHarmony(sr, freq, noteDur, quality, 'fuzz');
+            for (let i = 0; i < noteData.length; i++) noteData[i] = Math.tanh(noteData[i] * 4.5) * 0.55;
+        }
+        else if (type.includes('eruption')) { eruptionActive = true; /* fuzz wall rendered separately in compile() — skip adding to CASH bus */ }
+        else if (type.includes('bass') || type.includes('sub')) {
+            const root = freq < 80 ? freq : 41.2;
+            noteData = renderVoicedHarmony(sr, root, noteDur, 'power', 'bass');
+            for (let i = 0; i < noteData.length; i++) noteData[i] *= i / Math.max(1, noteData.length * 0.08);
+        }
+        else if (type.includes('drum') || type.includes('kick')) noteData = synth808Kick(sr, 55, 0.8, 0.85);
+        else if (type.includes('snare')) noteData = synthSnare(sr, 0.25, 220, 0.75);
+        else if (type.includes('hat')) noteData = synthHiHat(sr, 'closed', 0.4);
+        else if (!type.includes('sample') && !type.includes('loop')) noteData = renderVoicedHarmony(sr, freq, noteDur, quality, 'sustain');
+
+        if (noteData) {
+            const s = Math.floor(timePos * sr), vol = eruptionActive ? 0.30 : 0.70;
+            for (let i = 0; i < noteData.length && s + i < total; i++) out[s + i] += noteData[i] * vol;
+            if (eruptionActive) eruptionActive = false;
+        }
+        timePos += noteDur;
+    }
+    return out;
+}
+
+// ═══════════════════════════════════════════════
+// SKILL 5: REAL-TIME ANALYSIS + VISUALIZATION
+// ═══════════════════════════════════════════════
+
+function startAnalysisLoop() {
+    if (animFrameId) cancelAnimationFrame(animFrameId);
+
+    const specCanvas = $id('spectrumCanvas');
+    const waveCanvas = $id('waveformCanvas');
+
+    function resizeCanvases() {
+        for (const c of [specCanvas, waveCanvas]) {
+            const parent = c.parentElement;
+            c.width = parent.clientWidth * window.devicePixelRatio;
+            c.height = parent.clientHeight * window.devicePixelRatio;
+        }
+    }
+    resizeCanvases();
+
+    const freqData = new Float32Array(analyserNode.frequencyBinCount);
+    const timeData = new Float32Array(analyserNode.fftSize);
+    const binWidth = audioCtx.sampleRate / analyserNode.fftSize;
+
+    function draw() {
+        animFrameId = requestAnimationFrame(draw);
+
+        if (!isPlaying) return;
+
+        analyserNode.getFloatFrequencyData(freqData);
+        analyserNode.getFloatTimeDomainData(timeData);
+
+        // Measure centroid
+        let weightedSum = 0, totalEnergy = 0;
+        for (let i = 0; i < freqData.length; i++) {
+            const freq = i * binWidth;
+            if (freq < 20 || freq > 20000) continue;
+            const mag = Math.max(0, Math.pow(10, freqData[i] / 20));
+            weightedSum += freq * mag;
+            totalEnergy += mag;
+        }
+        const centroid = totalEnergy > 0 ? Math.round(weightedSum / totalEnergy) : 0;
+
+        // RMS
+        let sumSq = 0;
+        for (let i = 0; i < timeData.length; i++) sumSq += timeData[i] * timeData[i];
+        const rms = Math.sqrt(sumSq / timeData.length);
+        const dBFS = rms > 0 ? (20 * Math.log10(rms)).toFixed(1) : '-inf';
+        rmsHistory.push(rms);
+        if (rmsHistory.length > 90) rmsHistory.shift();
+        const avgRMS = rmsHistory.reduce((a, b) => a + b, 0) / rmsHistory.length;
+        const lufs = avgRMS > 0 ? (20 * Math.log10(avgRMS) - 0.691).toFixed(1) : '-inf';
+
+        const targetCentroid = REFERENCE_TARGETS[activeReference].centroid;
+        const drift = Math.abs(centroid - targetCentroid) / targetCentroid;
+        currentAnalysis = {
+            centroid,
+            targetCentroid,
+            drift,
+            lufs: parseFloat(lufs),
+            peak: parseFloat(dBFS),
+            duration: masterBuffer ? masterBuffer.duration : 0,
+            sampleRate: audioCtx.sampleRate,
+            reference: getReferenceName(),
+            exportPreset: EXPORT_PRESETS[activeExportPreset].label
+        };
+
+        // Update meters
+        $id('meterCentroid').textContent = centroid + ' Hz';
+        $id('meterRMS').textContent = dBFS + ' dB';
+        $id('meterLUFS').textContent = lufs;
+        $id('meterDrift').textContent = (drift * 100).toFixed(1) + '%';
+        $id('meterCentroid').style.color = drift < 0.1 ? 'var(--green)' : drift < 0.3 ? 'var(--gold)' : 'var(--red)';
+
+        updateDriftBadge(drift, centroid);
+
+        // Progress
+        if (masterBuffer) {
+            const elapsed = audioCtx.currentTime - playStartTime;
+            const pct = Math.min(100, (elapsed / masterBuffer.duration) * 100);
+            $id('progressFill').style.width = pct + '%';
+            const m = Math.floor(elapsed / 60);
+            const s = Math.floor(elapsed % 60);
+            $id('meterTime').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // Draw
+        if (vizMode === 'spectrum') {
+            drawSpectrum(specCanvas, freqData, binWidth, centroid, targetCentroid);
+        } else if (vizMode === 'waveform') {
+            drawWaveformRT(specCanvas, timeData);
+        } else if (vizMode === 'bands') {
+            drawBands(specCanvas, freqData, binWidth);
+        }
+    }
+
+    draw();
+}
+
+function drawSpectrum(canvas, freqData, binWidth, centroid, targetCentroid) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const dpr = window.devicePixelRatio;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, w, h);
+
+    const binCount = freqData.length;
+
+    // Log scale mapping
+    const minFreq = 20;
+    const maxFreq = 20000;
+    const logMin = Math.log10(minFreq);
+    const logMax = Math.log10(maxFreq);
+
+    ctx.beginPath();
+    let started = false;
+
+    for (let x = 0; x < w; x++) {
+        const logFreq = logMin + (x / w) * (logMax - logMin);
+        const freq = Math.pow(10, logFreq);
+        const bin = Math.round(freq / binWidth);
+        if (bin >= binCount) break;
+
+        const dB = freqData[bin];
+        const normalized = Math.max(0, (dB + 100) / 100);
+        const y = h - normalized * h;
+
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+    }
+
+    // Gradient fill
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, 'rgba(212, 175, 55, 0.3)');
+    grad.addColorStop(1, 'rgba(212, 175, 55, 0.02)');
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Spectrum line
+    ctx.beginPath();
+    started = false;
+    for (let x = 0; x < w; x++) {
+        const logFreq = logMin + (x / w) * (logMax - logMin);
+        const freq = Math.pow(10, logFreq);
+        const bin = Math.round(freq / binWidth);
+        if (bin >= binCount) break;
+        const dB = freqData[bin];
+        const normalized = Math.max(0, (dB + 100) / 100);
+        const y = h - normalized * h;
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.8)';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.stroke();
+
+    // Target centroid line
+    const targetX = ((Math.log10(targetCentroid) - logMin) / (logMax - logMin)) * w;
+    ctx.strokeStyle = 'rgba(77, 179, 63, 0.6)';
+    ctx.setLineDash([4 * dpr, 4 * dpr]);
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(targetX, 0);
+    ctx.lineTo(targetX, h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Measured centroid line
+    if (centroid > 0) {
+        const measX = ((Math.log10(centroid) - logMin) / (logMax - logMin)) * w;
+        ctx.strokeStyle = 'rgba(212, 175, 55, 0.9)';
+        ctx.lineWidth = 2 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(measX, 0);
+        ctx.lineTo(measX, h);
+        ctx.stroke();
+
+        // Label
+        ctx.fillStyle = '#d4af37';
+        ctx.font = `${10 * dpr}px IBM Plex Mono, monospace`;
+        ctx.fillText(`${centroid}Hz`, measX + 4 * dpr, 14 * dpr);
+    }
+
+    // Target label
+    ctx.fillStyle = 'rgba(77, 179, 63, 0.7)';
+    ctx.font = `${10 * dpr}px IBM Plex Mono, monospace`;
+    ctx.fillText(`target: ${targetCentroid}Hz`, targetX + 4 * dpr, 26 * dpr);
+
+    // Band boundaries
+    const bandFreqs = [80, 300, 2000, 6000];
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    for (const f of bandFreqs) {
+        const x = ((Math.log10(f) - logMin) / (logMax - logMin)) * w;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+    }
+}
+
+function drawWaveformRT(canvas, timeData) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const dpr = window.devicePixelRatio;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Center line
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+
+    // Waveform
+    ctx.strokeStyle = '#4db33f';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath();
+    const step = timeData.length / w;
+    for (let i = 0; i < w; i++) {
+        const sample = timeData[Math.floor(i * step)];
+        const y = h / 2 - sample * (h / 2.2);
+        i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+    }
+    ctx.stroke();
+}
+
+function drawBands(canvas, freqData, binWidth) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+    const dpr = window.devicePixelRatio;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, w, h);
+
+    const bands = [
+        { name: 'SUB', min: 20, max: 80, color: '#d4af37', target: 1.4 },
+        { name: 'LOW MID', min: 80, max: 300, color: '#4db33f', target: 1.2 },
+        { name: 'MID', min: 300, max: 2000, color: '#5b8dd9', target: 0.9 },
+        { name: 'HI MID', min: 2000, max: 6000, color: '#cc7a44', target: 0.6 },
+        { name: 'AIR', min: 6000, max: 20000, color: '#cc4444', target: 0.3 }
+    ];
+
+    const barW = w / (bands.length * 2 + 1);
+    const gap = barW;
+
+    bands.forEach((band, idx) => {
+        let energy = 0, count = 0;
+        for (let i = 0; i < freqData.length; i++) {
+            const freq = i * binWidth;
+            if (freq >= band.min && freq < band.max) {
+                energy += Math.max(0, Math.pow(10, freqData[i] / 20));
+                count++;
+            }
+        }
+        const avg = count > 0 ? energy / count : 0;
+        const barH = Math.min(h * 0.85, avg * h * 80);
+        const x = gap + idx * (barW + gap);
+        const y = h - barH;
+
+        // Bar
+        const grad = ctx.createLinearGradient(0, y, 0, h);
+        grad.addColorStop(0, band.color);
+        grad.addColorStop(1, band.color + '33');
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, y, barW, barH);
+
+        // Target line
+        const targetH = band.target * h * 0.3;
+        const targetY = h - targetH;
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.setLineDash([3 * dpr, 3 * dpr]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, targetY);
+        ctx.lineTo(x + barW, targetY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Label
+        ctx.fillStyle = '#666';
+        ctx.font = `${9 * dpr}px IBM Plex Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText(band.name, x + barW / 2, h - 4 * dpr);
+        ctx.textAlign = 'start';
+    });
+}
+
+function drawStaticWaveform(data) {
+    const canvas = $id('spectrumCanvas');
+    const ctx = canvas.getContext('2d');
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth * window.devicePixelRatio;
+    canvas.height = parent.clientHeight * window.devicePixelRatio;
+    const w = canvas.width;
+    const h = canvas.height;
+    const dpr = window.devicePixelRatio;
+
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = '#1a1a1a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 9; i++) {
+        const x = (w / 8) * i;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+
+    // Center line
+    ctx.strokeStyle = '#222';
+    ctx.setLineDash([2 * dpr, 2 * dpr]);
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Waveform
+    const step = Math.ceil(data.length / w);
+    ctx.strokeStyle = '#4db33f';
+    ctx.lineWidth = 1 * dpr;
+    ctx.beginPath();
+    for (let i = 0; i < w; i++) {
+        const idx = i * step;
+        const val = data[idx] || 0;
+        const y = h / 2 - val * (h / 2.3);
+        i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+    }
+    ctx.stroke();
+
+    // RMS envelope (subtle)
+    ctx.strokeStyle = 'rgba(212, 175, 55, 0.25)';
+    ctx.lineWidth = 1 * dpr;
+    const rmsWindow = Math.floor(step * 4);
+    ctx.beginPath();
+    for (let i = 0; i < w; i++) {
+        const start = i * step;
+        let sum = 0;
+        for (let j = 0; j < rmsWindow && start + j < data.length; j++) {
+            sum += data[start + j] * data[start + j];
+        }
+        const rms = Math.sqrt(sum / rmsWindow);
+        const y = h / 2 - rms * (h / 2.3);
+        i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+    }
+    ctx.stroke();
+    ctx.beginPath();
+    for (let i = 0; i < w; i++) {
+        const start = i * step;
+        let sum = 0;
+        for (let j = 0; j < rmsWindow && start + j < data.length; j++) {
+            sum += data[start + j] * data[start + j];
+        }
+        const rms = Math.sqrt(sum / rmsWindow);
+        const y = h / 2 + rms * (h / 2.3);
+        i === 0 ? ctx.moveTo(i, y) : ctx.lineTo(i, y);
+    }
+    ctx.stroke();
+}
+
+function updateDriftBadge(drift, centroid) {
+    const dot = $id('driftDot');
+    const text = $id('driftText');
+    if (drift < 0.10) {
+        dot.style.background = 'var(--green)';
+        text.textContent = `ON TARGET ${centroid}Hz`;
+        text.style.color = 'var(--green)';
+    } else if (drift < 0.25) {
+        dot.style.background = 'var(--gold)';
+        text.textContent = `DRIFTING ${centroid}Hz`;
+        text.style.color = 'var(--gold)';
+    } else {
+        dot.style.background = 'var(--red)';
+        text.textContent = `OFF TARGET ${centroid}Hz`;
+        text.style.color = 'var(--red)';
+    }
+}
+
+// ═══════════════════════════════════════════════
+// SKILL 6: WAV EXPORT WITH DITHER
+// ═══════════════════════════════════════════════
+
+async function exportWAV() {
+    if (!masterBuffer) { log('Compile first', 'error'); return; }
+
+    const preset = EXPORT_PRESETS[activeExportPreset];
+    const filename = `MELEGI-${activeExportPreset}-${Date.now()}.wav`;
+
+    try {
+        log(`Exporting: ${preset.label} (${preset.targetLUFS} LUFS, ${preset.bitDepth}-bit)...`, 'warn');
+
+        const exportSampleRate = preset.sampleRate;
+        const bitDepth = preset.bitDepth;
+        const left = normalizeLUFS(
+            applyLimiter(resampleLinear(masterBuffer.getChannelData(0), masterBuffer.sampleRate, exportSampleRate), -1),
+            preset.targetLUFS
+        );
+        const right = normalizeLUFS(
+            applyLimiter(resampleLinear(masterBuffer.numberOfChannels > 1 ? masterBuffer.getChannelData(1) : masterBuffer.getChannelData(0), masterBuffer.sampleRate, exportSampleRate), -1),
+            preset.targetLUFS
+        );
+        const interleaved = interleaveStereo(left, right);
+        const numChannels = 2;
+        const bytesPerSample = bitDepth / 8;
+        const numSamples = left.length;
+        const blockAlign = numChannels * bytesPerSample;
+        const byteRate = exportSampleRate * blockAlign;
+        const dataSize = numSamples * blockAlign;
+
+        const buffer = new ArrayBuffer(44 + dataSize);
+        const view = new DataView(buffer);
+
+        const writeStr = (offset, str) => {
+            for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        };
+
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + dataSize, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, numChannels, true);
+        view.setUint32(24, exportSampleRate, true);
+        view.setUint32(28, byteRate, true);
+        view.setUint16(32, blockAlign, true);
+        view.setUint16(34, bitDepth, true);
+        writeStr(36, 'data');
+        view.setUint32(40, dataSize, true);
+
+        const maxVal = Math.pow(2, bitDepth - 1) - 1;
+        let offset = 44;
+
+        for (let i = 0; i < interleaved.length; i++) {
+            let sample = interleaved[i];
+
+            if (bitDepth === 16) {
+                const r1 = Math.random() - 0.5;
+                const r2 = Math.random() - 0.5;
+                sample += (r1 + r2) / maxVal;
+            }
+
+            sample = Math.max(-1, Math.min(1, sample));
+            const quantized = Math.round(sample * maxVal);
+
+            if (bitDepth === 16) {
+                view.setInt16(offset, quantized, true);
+                offset += 2;
+            } else if (bitDepth === 24) {
+                const q = quantized < 0 ? quantized + 0x1000000 : quantized;
+                view.setUint8(offset, q & 0xFF);
+                view.setUint8(offset + 1, (q >> 8) & 0xFF);
+                view.setUint8(offset + 2, (q >> 16) & 0xFF);
+                offset += 3;
+            }
+        }
+
+        const blob = new Blob([buffer], { type: 'audio/wav' });
+        const saveResult = await saveBlob(blob, filename);
+        const lufs = measureOfflineLUFS(left);
+        log(`Exported: ${filename} (${lufs.toFixed(1)} LUFS, ${bitDepth}-bit, ${exportSampleRate}Hz via ${saveResult.method})`, 'success');
+    } catch (err) {
+        console.error(err);
+        log(`Export failed: ${err.message || err}`, 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════
+// PLAYBACK
+// ═══════════════════════════════════════════════
+
+function play() {
+    if (!masterBuffer) return;
+    const ctx = initAudioContext();
+
+    if (isPlaying) {
+        stop();
+        return;
+    }
+
+    if (liveGraph && liveGraph.buffers && startLivePlayback(ctx)) {
+        currentSource = null;
+        log('Live layer playback armed', 'success');
+
+        // Auto-stop after the compiled duration
+        const dur = liveGraph.duration || (masterBuffer ? masterBuffer.duration : 0);
+        if (dur > 0) {
+            setTimeout(() => { if (isPlaying) stop(); }, dur * 1000);
+        }
+    } else {
+        currentSource = ctx.createBufferSource();
+        currentSource.buffer = masterBuffer;
+        currentSource.connect(analyserNode);
+        currentSource.start(0);
+    }
+
+    playStartTime = ctx.currentTime;
+    isPlaying = true;
+    rmsHistory = [];
+
+    $id('btnPlay').classList.add('active');
+    $id('btnPlay').innerHTML = '&#9646;&#9646;';
+
+    startAnalysisLoop();
+
+    if (currentSource) {
+        currentSource.onended = () => {
+            if (isPlaying) stop();
+        };
+    }
+}
+
+function stop() {
+    if (currentSource) {
+        try { currentSource.stop(); } catch (e) {}
+        currentSource = null;
+    }
+    stopLivePlaybackSources();
+    if (detonationSource) {
+        try { detonationSource.stop(); } catch (e) {}
+        detonationSource = null;
+    }
+    isPlaying = false;
+    $id('btnPlay').classList.remove('active');
+    $id('btnPlay').innerHTML = '&#9654;';
+    $id('progressFill').style.width = '0%';
+    $id('meterTime').textContent = '0:00';
+    if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+}
+
+// ═══════════════════════════════════════════════
+// ERUPTION DETONATE
+// ═══════════════════════════════════════════════
+
+function detonate() {
+    if (!masterBuffer || !isPlaying) {
+        log('Play first, then detonate', 'warn');
+        return;
+    }
+
+    const detonationDur = parseInt($id('sliderDetDur').value) || 4;
+    log(`ERUPTION DETONATED (${detonationDur}s)`, 'error');
+
+    const btn = $id('btnDetonate');
+    btn.classList.add('active');
+    setTimeout(() => btn.classList.remove('active'), detonationDur * 1000);
+
+    if (liveGraph && liveGraph.eruptionGateGain) {
+        const ctx = initAudioContext();
+        const gate = liveGraph.eruptionGateGain.gain;
+        const now = ctx.currentTime;
+        gate.cancelScheduledValues(now);
+        gate.setValueAtTime(0, now);
+        gate.linearRampToValueAtTime(0.30, now + 0.05);
+        gate.setValueAtTime(0.30, now + Math.max(0.05, detonationDur - 0.1));
+        gate.linearRampToValueAtTime(0, now + detonationDur);
+        log('ERUPTION gate opened on live graph', 'success');
+    } else if (liveGraph && liveGraph.buffers && liveGraph.buffers.eruption) {
+        const ctx = initAudioContext();
+        if (detonationSource) {
+            try { detonationSource.stop(); } catch (e) {}
+            detonationSource = null;
+        }
+
+        const source = ctx.createBufferSource();
+        source.buffer = liveGraph.buffers.eruption;
+
+        const hp = ctx.createBiquadFilter();
+        hp.type = 'highpass';
+        hp.frequency.value = Math.max(120, parseInt($id('sliderHP').value) || 120);
+        hp.Q.value = 1.0;
+
+        const fuzz = ctx.createWaveShaper();
+        const curve = new Float32Array(256);
+        for (let i = 0; i < 256; i++) {
+            const x = (i * 2) / 256 - 1;
+            curve[i] = Math.tanh(x * 8) * 0.85;
+        }
+        fuzz.curve = curve;
+        fuzz.oversample = '4x';
+
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.30, ctx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.30, ctx.currentTime + Math.max(0.05, detonationDur - 0.1));
+        gain.gain.linearRampToValueAtTime(0, ctx.currentTime + detonationDur);
+
+        source.connect(hp);
+        hp.connect(fuzz);
+        fuzz.connect(gain);
+        gain.connect(analyserNode);
+        source.start(0);
+        source.stop(ctx.currentTime + detonationDur);
+        source.onended = () => { if (detonationSource === source) detonationSource = null; };
+        detonationSource = source;
+    }
+
+    // Visual flash
+    document.querySelector('.panel-viz').style.borderColor = 'var(--red)';
+    setTimeout(() => document.querySelector('.panel-viz').style.borderColor = '', 200);
+}
+
+// ═══════════════════════════════════════════════
+// SAMPLE LOADING (Drag & Drop)
+// ═══════════════════════════════════════════════
+
+function setupDropZones() {
+    document.querySelectorAll('.drop-zone').forEach(zone => {
+        const layer = zone.dataset.layer;
+
+        zone.addEventListener('dragover', e => {
+            e.preventDefault();
+            zone.classList.add('dragover');
+        });
+
+        zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+        zone.addEventListener('drop', async e => {
+            e.preventDefault();
+            zone.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(f =>
+                f.type.startsWith('audio/') || /\.(wav|mp3|aiff|flac)$/i.test(f.name)
+            );
+            if (files.length === 0) return;
+            await loadSampleFile(files[0], layer, zone);
+        });
+
+        zone.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'audio/*';
+            input.onchange = async e => {
+                if (e.target.files.length > 0) {
+                    await loadSampleFile(e.target.files[0], layer, zone);
+                }
+            };
+            input.click();
+        });
+    });
+}
+
+async function loadSampleFile(file, layer, zone) {
+    const ctx = initAudioContext();
+    try {
+        const arrayBuffer = await file.arrayBuffer();
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+        loadedSamples[layer] = audioBuffer;
+        zone.classList.add('loaded');
+        zone.querySelector('.drop-zone-label').textContent = file.name;
+        zone.querySelector('.drop-zone-sub').textContent =
+            `${audioBuffer.duration.toFixed(1)}s / ${audioBuffer.sampleRate}Hz / ${audioBuffer.numberOfChannels}ch`;
+        log(`Loaded sample: ${file.name} (${layer})`, 'success');
+    } catch (err) {
+        log(`Failed to load ${file.name}: ${err.message}`, 'error');
+    }
+}
+
+// ═══════════════════════════════════════════════
+// UI WIRING
+// ═══════════════════════════════════════════════
+
+function init() {
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            $id('tab-' + tab.dataset.tab).classList.add('active');
+        });
+    });
+
+    // Char counter
+    $id('notationInput').addEventListener('input', () => {
+        $id('charCount').textContent = $id('notationInput').value.length;
+        renderPrompt(activePrompt);
+    });
+
+    // Transport
+    $id('btnPlay').addEventListener('click', play);
+    $id('btnStop').addEventListener('click', stop);
+    $id('btnCompile').addEventListener('click', compile);
+    $id('btnDetonate').addEventListener('click', detonate);
+    $id('btnExport').addEventListener('click', exportWAV);
+    $id('btnGeneratePrompts').addEventListener('click', () => {
+        renderPrompt(activePrompt);
+        log('Prompt stack generated', 'success');
+    });
+    $id('btnCopyPrompt').addEventListener('click', copyActivePrompt);
+
+    document.querySelectorAll('.prompt-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.prompt-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderPrompt(btn.dataset.prompt);
+        });
+    });
+
+    // BPM sync
+    $id('inputBPM').addEventListener('change', () => {
+        const bpm = parseInt($id('inputBPM').value) || 122;
+        $id('bpmDisplay').textContent = bpm;
+        document.querySelector('.bpm-label').textContent = `BPM · HALF-TIME ${Math.round(bpm / 2)}`;
+        renderPrompt(activePrompt);
+    });
+
+    $id('selDuration').addEventListener('change', () => renderPrompt(activePrompt));
+    $id('selTuning').addEventListener('change', () => renderPrompt(activePrompt));
+
+    // Sliders
+    const sliders = [
+        ['sliderSoul', 'valSoul', '%'],
+        ['sliderSub', 'valSub', '%'],
+        ['sliderDrums', 'valDrums', '%'],
+        ['sliderTexture', 'valTexture', '%'],
+        ['sliderFuzz', 'valFuzz', '%'],
+        ['sliderHP', 'valHP', ' Hz'],
+        ['sliderDetDur', 'valDetDur', 's'],
+        ['sliderCrackle', 'valCrackle', '%'],
+        ['sliderHiss', 'valHiss', '%'],
+        ['sliderWow', 'valWow', '%'],
+        ['sliderWarmth', 'valWarmth', '%'],
+    ];
+
+    sliders.forEach(([sliderId, valId, suffix]) => {
+        $id(sliderId).addEventListener('input', () => {
+            $id(valId).textContent = $id(sliderId).value + suffix;
+            renderPrompt(activePrompt);
+        });
+    });
+
+    // Reference targets
+    document.querySelectorAll('.ref-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.ref-item').forEach(i => i.classList.remove('active'));
+            item.classList.add('active');
+            activeReference = item.dataset.ref;
+            log(`Reference target: ${item.querySelector('.ref-name').textContent} (${REFERENCE_TARGETS[activeReference].centroid}Hz)`, '');
+            renderPrompt(activePrompt);
+        });
+    });
+
+    // Export presets
+    document.querySelectorAll('.export-preset').forEach(preset => {
+        preset.addEventListener('click', () => {
+            document.querySelectorAll('.export-preset').forEach(p => p.classList.remove('active'));
+            preset.classList.add('active');
+            activeExportPreset = preset.dataset.preset;
+            log(`Export preset: ${EXPORT_PRESETS[activeExportPreset].label}`, '');
+            renderPrompt(activePrompt);
+        });
+    });
+
+    // Viz mode
+    document.querySelectorAll('.viz-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.viz-mode-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            vizMode = btn.dataset.viz;
+            $id('vizLabel').textContent = btn.textContent;
+        });
+    });
+
+    // Drop zones
+    setupDropZones();
+
+    // Window resize
+    window.addEventListener('resize', () => {
+        if (masterBuffer && !isPlaying) {
+            drawStaticWaveform(masterBuffer.getChannelData(0));
+        }
+    });
+
+    log('MELEGI Compiler v2 initialized', 'success');
+    log(`Fingerprint target: ${FINGERPRINT.spectralCentroid}Hz | ${FINGERPRINT.bpm} BPM half-time`, '');
+    log(`CASH (70%) + ERUPTION (30%) architecture loaded`, '');
+    log('All 10 skills integrated: Fingerprint, Architecture, DSP, Analysis, Drums, Lo-fi, Samples, References, Mastering, Export', 'success');
+    renderPrompt('song');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
