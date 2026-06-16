@@ -413,7 +413,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
     <div class="tab-content" id="ptab-samples">
       <label>SAMPLE DROP</label>
       <div class="drop-zone" id="sample-drop">
-        <input type="file" accept=".wav,.aiff,.mp3,.aif" multiple onchange="loadSamples(this.files)">
+        <input type="file" accept="audio/*,.wav,.aiff,.aif,.mp3" multiple onchange="loadSamples(this.files)">
         <span class="drop-zone-label">DROP SAMPLES</span>
         <span class="drop-zone-sub">WAV · AIFF · MP3</span>
       </div>
@@ -492,11 +492,11 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
   <div id="refine-left">
     <div class="section-label">SUNO WAV PROCESSOR</div>
     <div class="drop-zone" id="refine-drop" style="min-height:140px">
-      <input type="file" accept=".wav,.aiff,.mp3,.aif" onchange="loadRefineFile(this.files[0])">
+      <input type="file" accept="audio/*,.wav,.aiff,.aif,.mp3" onchange="loadRefineFile(this.files[0])">
       <span class="drop-zone-label">DROP SUNO WAV</span>
       <span class="drop-zone-sub">WAV · AIFF · MP3</span>
     </div>
-    <div id="refine-file-info" style="display:none;display:flex;flex-direction:column;gap:6px">
+    <div id="refine-file-info" style="display:none;flex-direction:column;gap:6px">
       <div class="info-row"><span class="info-key">FILE</span><span class="info-val" id="rfi-name">—</span></div>
       <div class="info-row"><span class="info-key">DURATION</span><span class="info-val" id="rfi-dur">—</span></div>
       <div class="info-row"><span class="info-key">SAMPLE RATE</span><span class="info-val" id="rfi-sr">—</span></div>
@@ -821,7 +821,7 @@ function synthSnare(sr, dur=0.3) {
 function synthHiHat(sr, dur=0.08, open=false) {
   const len = Math.floor(sr*(open?dur*6:dur)), buf = new Float32Array(len);
   for (let i = 0; i < len; i++)
-    buf[i] = (Math.random()*2-1) * Math.exp(-i/len*(open?8:40)*len/sr*sr) * 0.4;
+    buf[i] = (Math.random()*2-1) * Math.exp(-(i/sr)*(open?8:40)) * 0.4;
   return buf;
 }
 
