@@ -540,6 +540,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
   <div class="panel" id="panel-right">
     <div class="right-inner">
       <button class="btn primary" id="compile-btn" onclick="runCompile()" style="height:48px;font-size:13px;letter-spacing:2px">BUILD</button>
+      <button class="btn" id="demo-btn" onclick="loadDemo()" style="font-size:9px;letter-spacing:1.5px;border-color:rgba(147,51,234,.4);color:#7a6d9a;margin-bottom:4px">▶ DEMO: THE FLOOR GAVE UP</button>
       <button class="btn danger" id="eruption-btn" onclick="toggleEruption()">ERUPTION DETONATE</button>
       <button class="btn" id="export-quick-btn" onclick="quickExport()" disabled>QUICK EXPORT</button>
       <div class="sep"></div>
@@ -875,6 +876,45 @@ function toggleMoreOpts() {
   body.classList.toggle('open');
 }
 
+// ── DEMO LOADER ───────────────────────────────────────────────────────────────
+function loadDemo() {
+  const lyricsEl = document.getElementById('lyrics-prompt');
+  const stylesEl = document.getElementById('styles-prompt');
+  const titleEl  = document.getElementById('song-title-input');
+  lyricsEl.value = 'THE FLOOR GAVE UP\n9-string C# tuning earthquake hardcore.\nProgression: C#5 → D5 → C#5 → A5 → G5 → D5\nMemphis horror tape. Hardcore two-step bounce. Mega slow half-time breakdown.\nChopped screwed outro. Sub rumble. No happy chorus. No clean hook. Violent pit-ready energy.';
+  state.prompt = lyricsEl.value;
+  stylesEl.value = 'dark, Memphis horror tape, 9-string earthquake sub bass, hardcore two-step, chopped screwed slowed, 808 kick, half-time breakdown, violent, ugly, street-level';
+  state.stylesText = stylesEl.value;
+  titleEl.value = 'THE FLOOR GAVE UP';
+  state.songTitle = 'THE FLOOR GAVE UP';
+  updateFilenamePreview();
+  // Open MORE OPTIONS and inject the C# notation
+  const moreHdr  = document.getElementById('more-opts-hdr');
+  const moreBody = document.getElementById('more-opts-body');
+  if (!moreBody.classList.contains('open')) {
+    moreHdr.classList.add('open');
+    moreBody.classList.add('open');
+  }
+  document.getElementById('ks-notation').value = 'C#2 G#2 D2 A2 C#3 E3 G#3 D3';
+  // Set style chips: only DARK + SOUL
+  document.querySelectorAll('.style-chip').forEach(c => {
+    const on = ['dark','soul'].includes(c.dataset.style);
+    c.classList.toggle('active', on);
+    if (on) state.activeStyles.add(c.dataset.style);
+    else state.activeStyles.delete(c.dataset.style);
+  });
+  // Bump SUB layer for 9-string weight
+  const subSlider = document.querySelector('input[oninput*="cash.sub"]');
+  if (subSlider) { subSlider.value = '1'; state.cash.sub = 1; subSlider.nextElementSibling.textContent = '1.00'; }
+  // Bump crackle/wow for Memphis tape feel
+  const crackleSlider = document.querySelector('input[oninput*="lofi.crackle"]');
+  if (crackleSlider) { crackleSlider.value = '0.5'; state.lofi.crackle = 0.5; crackleSlider.nextElementSibling.textContent = '0.50'; }
+  const wowSlider = document.querySelector('input[oninput*="lofi.wow"]');
+  if (wowSlider) { wowSlider.value = '0.4'; state.lofi.wow = 0.4; wowSlider.nextElementSibling.textContent = '0.40'; }
+  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT', 'ok');
+  compileLog('HIT BUILD TO COMPILE  |  SET API KEY FOR AI-ENHANCED GENERATION', 'info');
+}
+
 async function aiGenerateNotation() {
   const apiKey = localStorage.getItem('melegi_api_key');
   if (!apiKey) return null;
@@ -884,9 +924,10 @@ async function aiGenerateNotation() {
     ? '' : [state.stylesText, chips].filter(Boolean).join(' · ');
   if (!stylesDesc) compileLog('ALL STYLES DESELECTED — NO STYLE CONSTRAINT SENT', 'warn');
   const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',DMINOR:'D minor',AMINOR:'A minor',BBMINOR:'Bb minor'}[state.exportKey] || 'F minor';
-  const promptExtra = !state.instrumental && state.prompt
-    ? ` The lyrics/theme is: "${state.prompt.slice(0,120)}".`
+  const promptExtra = state.prompt
+    ? ` Song concept: "${state.prompt.slice(0,200)}".`
     : '';
+  const styleExtra = stylesDesc ? ` Style/vibe: ${stylesDesc}.` : '';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -898,10 +939,10 @@ async function aiGenerateNotation() {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 128,
+        max_tokens: 200,
         messages: [{
           role: 'user',
-          content: `You are MELEGI, a boom-bap beat compiler. Generate exactly 8 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat in ${keyLabel}.${stylesDesc ? ' Style: '+stylesDesc+'.' : ''}${promptExtra} Target spectral centroid: 757 Hz. Return ONLY the notes space-separated (e.g. "F2 C3 Ab3 Eb4 F4 Ab2 C3 Eb3"). No explanation.`
+          content: `You are MELEGI, a dark beat compiler. Generate exactly 12 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat in ${keyLabel}.${styleExtra}${promptExtra} Choose low octaves (1-3) for dark sub weight, mid octaves (3-4) for harmonic color. Target spectral centroid near 757 Hz. Return ONLY the 12 notes space-separated (e.g. "C#2 G#2 D2 A2 C#3 E3 G#3 D3 C#2 G1 A1 E2"). No explanation.`
         }]
       })
     });
