@@ -429,8 +429,8 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
     </div>
     <div class="tab-content active" id="ptab-notation">
       <!-- + Audio attachment -->
-      <button id="prompt-audio-btn">
-        <input type="file" multiple onchange="loadSamples(this.files)" accept="audio/*,.wav,.aiff,.aif,.mp3">
+      <button type="button" id="prompt-audio-btn">
+        <input type="file" multiple onchange="loadSamples(this.files)">
         + AUDIO
       </button>
 
@@ -866,7 +866,10 @@ async function aiGenerateNotation() {
   if (!apiKey) return null;
   compileLog('AI BUILD — CALLING CLAUDE...', 'info');
   const chips = [...state.activeStyles].join(', ');
-  const stylesDesc = [state.stylesText, chips].filter(Boolean).join(' · ') || 'dark, lo-fi, boom-bap';
+  const stylesDesc = state.activeStyles.size === 0 && !state.stylesText
+    ? '' : [state.stylesText, chips].filter(Boolean).join(' · ');
+  if (!stylesDesc) compileLog('ALL STYLES DESELECTED — NO STYLE CONSTRAINT SENT', 'warn');
+  const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',DMINOR:'D minor',AMINOR:'A minor',BBMINOR:'Bb minor'}[state.exportKey] || 'F minor';
   const promptExtra = !state.instrumental && state.prompt
     ? ` The lyrics/theme is: "${state.prompt.slice(0,120)}".`
     : '';
@@ -884,12 +887,13 @@ async function aiGenerateNotation() {
         max_tokens: 128,
         messages: [{
           role: 'user',
-          content: `You are MELEGI, a boom-bap beat compiler. Generate exactly 8 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat. Style: ${stylesDesc}.${promptExtra} Target spectral centroid: 757 Hz. Return ONLY the notes space-separated (e.g. "F2 C3 Ab3 Eb4 F4 Ab2 C3 Eb3"). No explanation.`
+          content: `You are MELEGI, a boom-bap beat compiler. Generate exactly 8 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat in ${keyLabel}.${stylesDesc ? ' Style: '+stylesDesc+'.' : ''}${promptExtra} Target spectral centroid: 757 Hz. Return ONLY the notes space-separated (e.g. "F2 C3 Ab3 Eb4 F4 Ab2 C3 Eb3"). No explanation.`
         }]
       })
     });
     if (!res.ok) throw new Error('API ' + res.status);
     const data = await res.json();
+    if (!data.content?.length || !data.content[0].text) throw new Error('empty response from API');
     const notes = data.content[0].text.trim();
     compileLog('AI NOTATION: ' + notes, 'ok');
     return notes;
@@ -1024,7 +1028,12 @@ async function runCompile() {
   let aiNotes = null;
   if (apiKey) {
     aiNotes = await aiGenerateNotation();
-    if (aiNotes) document.getElementById('ks-notation').value = aiNotes;
+    if (aiNotes) {
+      document.getElementById('ks-notation').value = aiNotes;
+    } else {
+      const fallback = document.getElementById('ks-notation').value.trim();
+      compileLog('FALLING BACK TO NOTATION: ' + (fallback || 'DEFAULT CHORD'), 'warn');
+    }
   }
 
   const sr = state.audioCtx.sampleRate;
@@ -1546,14 +1555,13 @@ function selectKey(el) {
 function updateFilenamePreview() {
   const cfg=EXPORT_CONFIGS[state.exportTarget];
   const d=new Date(); const ds=d.getFullYear()+(''+(d.getMonth()+1)).padStart(2,'0')+(''+(d.getDate())).padStart(2,'0');
-  const titlePart = state.songTitle ? '_'+state.songTitle.trim().toUpperCase().replace(/\s+/g,'_').slice(0,20) : '';
+  const titlePart = state.songTitle ? '_'+state.songTitle.trim().toUpperCase().replace(/[^\w\s-]/g,'').replace(/\s+/g,'_').slice(0,20) : '';
   document.getElementById('filename-preview').textContent='MELEGI_'+cfg.label+'_'+state.bpm+'bpm_'+state.exportKey+titlePart+'_'+ds+'.wav';
 }
 function setPreset(p,btn) {
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  state.exportTarget=p==='beatstars'?'beatstars':p==='suno'?'suno':'logic';
-  updateFilenamePreview();
+  updateExportTarget(p==='beatstars'?'beatstars':p==='suno'?'suno':'logic');
 }
 
 function exportLog(msg,cls) {
@@ -1703,7 +1711,7 @@ if ('serviceWorker' in navigator) {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
-  document.querySelectorAll('.drop-zone input[type=file]').forEach(el => el.accept = AUDIO_ACCEPT);
+  document.querySelectorAll('.drop-zone input[type=file], #prompt-audio-btn input[type=file]').forEach(el => el.accept = AUDIO_ACCEPT);
   loadApiKey();
   buildRefCards();
   updateFilenamePreview();
