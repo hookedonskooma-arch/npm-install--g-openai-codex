@@ -211,6 +211,8 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
 .info-val{color:var(--text);font-weight:500}
 .analysis-section{display:none;flex-direction:column;gap:10px}
 .analysis-section.visible{display:flex}
+#refine-file-info{flex-direction:column;gap:6px}
+#refine-file-info.visible{display:flex}
 
 /* ── ANALYZE PAGE ─────────────────────────────────────────────────── */
 #page-analyze{flex-direction:column;overflow:hidden}
@@ -413,7 +415,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
     <div class="tab-content" id="ptab-samples">
       <label>SAMPLE DROP</label>
       <div class="drop-zone" id="sample-drop">
-        <input type="file" accept="audio/*,.wav,.aiff,.aif,.mp3" multiple onchange="loadSamples(this.files)">
+        <input type="file" multiple onchange="loadSamples(this.files)">
         <span class="drop-zone-label">DROP SAMPLES</span>
         <span class="drop-zone-sub">WAV · AIFF · MP3</span>
       </div>
@@ -492,11 +494,11 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
   <div id="refine-left">
     <div class="section-label">SUNO WAV PROCESSOR</div>
     <div class="drop-zone" id="refine-drop" style="min-height:140px">
-      <input type="file" accept="audio/*,.wav,.aiff,.aif,.mp3" onchange="loadRefineFile(this.files[0])">
+      <input type="file" onchange="loadRefineFile(this.files[0])">
       <span class="drop-zone-label">DROP SUNO WAV</span>
       <span class="drop-zone-sub">WAV · AIFF · MP3</span>
     </div>
-    <div id="refine-file-info" style="display:none;flex-direction:column;gap:6px">
+    <div id="refine-file-info" style="display:none">
       <div class="info-row"><span class="info-key">FILE</span><span class="info-val" id="rfi-name">—</span></div>
       <div class="info-row"><span class="info-key">DURATION</span><span class="info-val" id="rfi-dur">—</span></div>
       <div class="info-row"><span class="info-key">SAMPLE RATE</span><span class="info-val" id="rfi-sr">—</span></div>
@@ -681,6 +683,8 @@ const REFERENCE_TARGETS = {
   eTownConcrete:{centroid:1800,lpFreq:8000,subShelf:{freq:80,gain:1  },compressionRatio:8,  dynamicRange:7, reverbTail:0.15},
   converge:     {centroid:2200,lpFreq:10000,subShelf:{freq:80,gain:0 },compressionRatio:12, dynamicRange:5, reverbTail:0  }
 };
+
+const AUDIO_ACCEPT = 'audio/*,.wav,.aiff,.aif,.mp3';
 
 const FINGERPRINT_EQ = [
   {type:'lowshelf', freq:80,  gain:3.5, Q:0.7},
@@ -1334,7 +1338,7 @@ function loadRefineFile(file) {
       document.getElementById('rfi-dur').textContent=audioBuf.duration.toFixed(2)+'s';
       document.getElementById('rfi-sr').textContent=audioBuf.sampleRate+' Hz';
       document.getElementById('rfi-ch').textContent=audioBuf.numberOfChannels;
-      document.getElementById('refine-file-info').style.display='flex';
+      document.getElementById('refine-file-info').classList.add('visible');
       const samples=audioBuf.getChannelData(0), sr=audioBuf.sampleRate;
       let sq=0;
       for(let i=0;i<samples.length;i++) sq+=samples[i]*samples[i];
@@ -1589,6 +1593,7 @@ if ('serviceWorker' in navigator) {
 
 // ── INIT ──────────────────────────────────────────────────────────────────────
 function init() {
+  document.querySelectorAll('.drop-zone input[type=file]').forEach(el => el.accept = AUDIO_ACCEPT);
   loadApiKey();
   buildRefCards();
   updateFilenamePreview();
