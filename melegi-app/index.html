@@ -405,6 +405,17 @@ body::before{
     </div>
     <button class="btn primary" onclick="saveApiKey()">SAVE KEY</button>
     <button class="btn" onclick="clearApiKey()" style="border-color:var(--red);color:var(--red)">CLEAR KEY</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div>
+      <label>MUSIC AI KEY (ELEVENLABS)</label>
+      <input type="password" id="music-key-input" placeholder="sk_..." autocomplete="off">
+      <div class="api-status" id="music-key-status"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7">
+      ElevenLabs key for AI MUSIC mode. Generates real audio from your prompt + style chips.
+    </div>
+    <button class="btn primary" onclick="saveMusicKey()">SAVE MUSIC KEY</button>
+    <button class="btn" onclick="clearMusicKey()" style="border-color:var(--red);color:var(--red)">CLEAR</button>
   </div>
 </div>
 
@@ -539,6 +550,10 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
   <!-- RIGHT: controls -->
   <div class="panel" id="panel-right">
     <div class="right-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim)">AI MUSIC</span>
+        <button id="ai-music-btn" onclick="toggleAiMusic()" class="btn" style="font-size:8px;letter-spacing:1px;padding:2px 8px;border-color:rgba(147,51,234,.25);color:var(--text-dim);opacity:0.5">OFF</button>
+      </div>
       <button class="btn primary" id="compile-btn" onclick="runCompile()" style="height:48px;font-size:13px;letter-spacing:2px">BUILD</button>
       <button class="btn" id="demo-btn" onclick="loadDemo()" style="font-size:9px;letter-spacing:1.5px;border-color:rgba(147,51,234,.4);color:#7a6d9a;margin-bottom:4px">▶ DEMO: THE FLOOR GAVE UP</button>
       <button class="btn danger" id="eruption-btn" onclick="toggleEruption()">ERUPTION DETONATE</button>
@@ -800,7 +815,8 @@ const state = {
   lofi:{crackle:0.2,hiss:0.1,wow:0.15,warmth:0.5},
   exportTarget:'beatstars',exportBars:8,exportKey:'FMINOR',
   exportHistory:[],currentSource:null,rafId:null,driftInterval:null,
-  vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[]
+  vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[],
+  aiMusicMode:false
 };
 
 // ── API KEY ────────────────────────────────────────────────────────────────────
@@ -809,6 +825,8 @@ function loadApiKey() {
   document.getElementById('api-key-input').value = key;
   document.getElementById('api-key-inline').value = key ? '••••••••••••••••' : '';
   updateApiIndicator(!!key);
+  const mKey = localStorage.getItem('melegi_music_key') || '';
+  document.getElementById('music-key-input').value = mKey;
 }
 
 function saveApiKey() {
@@ -846,6 +864,44 @@ function openSettings() {
   loadApiKey();
 }
 function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+
+function saveMusicKey() {
+  const key = document.getElementById('music-key-input').value.trim();
+  if (key) {
+    localStorage.setItem('melegi_music_key', key);
+    document.getElementById('music-key-status').textContent = 'MUSIC KEY SAVED — AI MUSIC ENABLED';
+    document.getElementById('music-key-status').className = 'api-status ok';
+    setTimeout(closeSettings, 1000);
+  } else {
+    document.getElementById('music-key-status').textContent = 'ENTER A VALID KEY';
+    document.getElementById('music-key-status').className = 'api-status err';
+  }
+}
+function clearMusicKey() {
+  localStorage.removeItem('melegi_music_key');
+  document.getElementById('music-key-input').value = '';
+  document.getElementById('music-key-status').textContent = 'MUSIC KEY CLEARED';
+  document.getElementById('music-key-status').className = 'api-status';
+}
+
+function toggleAiMusic() {
+  state.aiMusicMode = !state.aiMusicMode;
+  const btn = document.getElementById('ai-music-btn');
+  if (state.aiMusicMode) {
+    btn.textContent = '✦ ON';
+    btn.style.borderColor = 'rgba(147,51,234,.8)';
+    btn.style.color = 'var(--gold-light)';
+    btn.style.opacity = '1';
+    const hasKey = !!localStorage.getItem('melegi_music_key');
+    compileLog('AI MUSIC MODE ON' + (hasKey ? '' : ' — ADD ELEVENLABS KEY IN ⚙ SETTINGS'), 'info');
+  } else {
+    btn.textContent = 'OFF';
+    btn.style.borderColor = 'rgba(147,51,234,.25)';
+    btn.style.color = 'var(--text-dim)';
+    btn.style.opacity = '0.5';
+    compileLog('AI MUSIC MODE OFF — KS SYNTHESIS ACTIVE', 'info');
+  }
+}
 document.getElementById('settings-overlay').addEventListener('click', e => {
   if (e.target === document.getElementById('settings-overlay')) closeSettings();
 });
@@ -956,6 +1012,96 @@ async function aiGenerateNotation() {
     compileLog('AI ERROR: ' + e.message + ' — USING LOCAL', 'warn');
     return null;
   }
+}
+
+// ── AI MUSIC GENERATION ────────────────────────────────────────────────────────
+async function aiMusicGenerate(musicKey, prompt, durationSeconds) {
+  const res = await fetch('https://api.elevenlabs.io/v1/music/generations', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': musicKey,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      prompt: prompt,
+      duration_seconds: Math.min(durationSeconds, 120)
+    })
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('ElevenLabs ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
+async function runAiMusicBuild(musicKey) {
+  const chips = [...state.activeStyles].join(', ');
+  const styleText = [state.stylesText, chips].filter(Boolean).join(', ');
+  const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',
+    DMINOR:'D minor',AMINOR:'A minor',BBMINOR:'Bb minor'}[state.exportKey] || 'F minor';
+  const concept = state.prompt ? state.prompt.slice(0, 300) : '';
+  const promptParts = [];
+  if (concept) promptParts.push(concept);
+  if (styleText) promptParts.push(styleText);
+  promptParts.push(state.bpm + ' BPM, ' + keyLabel);
+  const fullPrompt = promptParts.join('. ');
+  const durationSeconds = Math.ceil(state.bars * 4 * 60 / state.bpm) + 2;
+
+  compileLog('AI MUSIC — PROMPT: ' + fullPrompt.slice(0, 70) + (fullPrompt.length > 70 ? '…' : ''), 'info');
+  compileLog('AI MUSIC — REQUESTING ' + durationSeconds + 's FROM ELEVENLABS...', 'info');
+  setProgress(15);
+
+  let audioData;
+  try {
+    audioData = await aiMusicGenerate(musicKey, fullPrompt, durationSeconds);
+  } catch(e) {
+    compileLog('AI MUSIC ERROR: ' + e.message, 'warn');
+    return false;
+  }
+
+  setProgress(50);
+  compileLog('AI MUSIC — RECEIVED ' + (audioData.byteLength / 1024).toFixed(1) + ' KB — DECODING...', 'ok');
+
+  let audioBuf;
+  try {
+    audioBuf = await state.audioCtx.decodeAudioData(audioData);
+  } catch(e) {
+    compileLog('AI MUSIC DECODE ERROR: ' + e.message, 'warn');
+    return false;
+  }
+
+  setProgress(65);
+  compileLog('AI MUSIC — DECODED: ' + audioBuf.duration.toFixed(1) + 's @ ' + audioBuf.sampleRate + 'Hz', 'ok');
+
+  const sr = audioBuf.sampleRate;
+  let samples = Float32Array.from(audioBuf.getChannelData(0));
+
+  compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
+  const eq = applyEQChain(samples, FINGERPRINT_EQ, sr);
+  setProgress(75);
+
+  compileLog('NORMALIZING + BRICK WALL LIMITER...', 'ok');
+  let peak = 0;
+  for (let i = 0; i < eq.length; i++) peak = Math.max(peak, Math.abs(eq[i]));
+  const ceiling = Math.pow(10, -1/20);
+  if (peak > 0) {
+    const g = ceiling / peak;
+    for (let i = 0; i < eq.length; i++) {
+      eq[i] *= g;
+      if (eq[i] > ceiling) eq[i] = ceiling;
+      if (eq[i] < -ceiling) eq[i] = -ceiling;
+    }
+  }
+  setProgress(90);
+
+  const masterBuf = state.audioCtx.createBuffer(1, eq.length, sr);
+  masterBuf.copyToChannel(eq, 0);
+  state.masterBuffer = masterBuf;
+  state.compileDone = true;
+  updateCompileMeters(eq, sr);
+  setProgress(100);
+  compileLog('AI MUSIC BUILD COMPLETE — ' + eq.length + ' SAMPLES @ ' + sr + 'Hz', 'info');
+  return true;
 }
 
 // ── AUDIO CTX ─────────────────────────────────────────────────────────────────
@@ -1077,6 +1223,22 @@ async function runCompile() {
   document.getElementById('compile-btn').disabled = true;
   document.getElementById('progress-bar-wrap').style.display = 'block';
   setProgress(0);
+
+  // ── AI MUSIC path ──────────────────────────────────────────────────────────
+  const musicKey = localStorage.getItem('melegi_music_key');
+  if (state.aiMusicMode && musicKey) {
+    const ok = await runAiMusicBuild(musicKey);
+    if (ok) {
+      document.getElementById('compile-btn').disabled = false;
+      document.getElementById('export-quick-btn').disabled = false;
+      document.getElementById('render-btn').disabled = false;
+      setTimeout(() => { document.getElementById('progress-bar-wrap').style.display='none'; setProgress(0); }, 800);
+      drawViz();
+      return;
+    }
+    compileLog('AI MUSIC FAILED — FALLING BACK TO KS SYNTHESIS', 'warn');
+    setProgress(0);
+  }
 
   // Optional AI notation
   const apiKey = localStorage.getItem('melegi_api_key');
