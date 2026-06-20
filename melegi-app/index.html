@@ -1170,41 +1170,63 @@ function ensureAudioCtx() {
 }
 
 // ── SYNTHESIS ─────────────────────────────────────────────────────────────────
-function synth808Kick(sr, dur=0.8, startF=60, endF=30) {
+function synth808Kick(sr, dur=0.8, startF=80, endF=40) {
   const len = Math.floor(sr * dur), buf = new Float32Array(len);
+  let phase = 0;
   for (let i = 0; i < len; i++) {
-    const t = i / sr, f = startF * Math.pow(endF/startF, t/dur);
-    buf[i] = Math.sin(2*Math.PI*f*t) * Math.exp(-t*4) * 0.9;
-    if (i < sr*0.005) buf[i] += (Math.random()*2-1)*0.3*(1 - i/(sr*0.005));
+    const t = i / sr;
+    const f = startF * Math.pow(endF / startF, t / dur);
+    phase += 2 * Math.PI * f / sr;
+    const env = Math.exp(-t * 5);
+    const click = i < sr * 0.005 ? (1 - i / (sr * 0.005)) : 0;
+    buf[i] = Math.tanh(Math.sin(phase) * 1.5) * env * 0.8
+           + (Math.random() * 2 - 1) * click * 0.25;
   }
   return buf;
 }
 
 function synthSnare(sr, dur=0.3) {
-  const len = Math.floor(sr*dur), buf = new Float32Array(len);
+  const len = Math.floor(sr * dur), buf = new Float32Array(len);
   for (let i = 0; i < len; i++) {
-    const t = i/sr, env = Math.exp(-t*12);
-    buf[i] = (Math.sin(2*Math.PI*200*t)*0.3 + (Math.random()*2-1)*0.7) * env;
+    const t = i / sr;
+    const body = (Math.sin(2*Math.PI*185*t) + Math.sin(2*Math.PI*280*t) * 0.6)
+                 * Math.exp(-t * 18) * 0.22;
+    const snap  = (Math.random() * 2 - 1) * Math.exp(-t * 60)
+                 * (i < sr * 0.003 ? 1 : 0) * 0.4;
+    const noise = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.7;
+    buf[i] = body + snap + noise;
   }
   return buf;
 }
 
 function synthHiHat(sr, dur=0.08, open=false) {
-  const len = Math.floor(sr*(open?dur*6:dur)), buf = new Float32Array(len);
-  for (let i = 0; i < len; i++)
-    buf[i] = (Math.random()*2-1) * Math.exp(-(i/sr)*(open?8:40)) * 0.4;
+  const actualDur = open ? dur * 5 : dur;
+  const len = Math.floor(sr * actualDur), buf = new Float32Array(len);
+  const decayRate = open ? 6 : 38;
+  const freqs = [8010, 8653, 10234, 11803, 14523, 16847];
+  const phases = freqs.map(() => Math.random() * Math.PI * 2);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr, env = Math.exp(-t * decayRate) * 0.30;
+    let sig = 0;
+    for (let k = 0; k < freqs.length; k++) sig += Math.sin(2*Math.PI*freqs[k]*t + phases[k]);
+    buf[i] = (sig / freqs.length * 0.65 + (Math.random() * 2 - 1) * 0.35) * env;
+  }
   return buf;
 }
 
-function karplusStrong(freq, dur, sr, decay=0.995) {
-  const N = Math.round(sr/freq), total = Math.floor(dur*sr);
-  const buf = new Float32Array(total), delay = new Float32Array(N);
-  for (let i = 0; i < N; i++) delay[i] = Math.random()*2-1;
+function karplusStrong(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) {
+  const N = Math.round(sr / freq);
+  const total = Math.floor(dur * sr);
+  const buf = new Float32Array(total);
+  const delay = new Float32Array(N);
+  const pickLen = Math.max(1, Math.round(N * (1 - pickPos * 0.7)));
+  for (let i = 0; i < pickLen; i++) delay[i] = Math.random() * 2 - 1;
+  const damp = 0.5 - brightness * 0.15;
   let pos = 0;
   for (let i = 0; i < total; i++) {
-    const next = (pos+1)%N;
+    const next = (pos + 1) % N;
     buf[i] = delay[pos];
-    delay[pos] = (delay[pos]+delay[next])*0.5*decay;
+    delay[pos] = (delay[pos] * (1 - damp) + delay[next] * damp) * decay;
     pos = next;
   }
   return buf;
