@@ -180,6 +180,44 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
 .log-line.err{color:var(--red)}
 .log-line.info{color:var(--gold)}
 
+/* ── PROMPT UI (Suno-style) ───────────────────────────────────────── */
+.style-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.style-chip{
+  padding:4px 10px;border:1px solid var(--border);border-radius:10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;color:var(--text-dim);background:none;
+  font-family:inherit;transition:all .15s;
+}
+.style-chip:hover{border-color:var(--gold);color:var(--gold)}
+.style-chip.active{border-color:var(--gold);color:#000;background:var(--gold)}
+.toggle-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border:1px solid var(--border);border-radius:10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;color:var(--text-dim);background:none;
+  font-family:inherit;transition:all .15s;
+}
+.toggle-pill.active{border-color:var(--green);color:var(--green)}
+.more-opts-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:6px 0;font-size:10px;text-transform:uppercase;
+  letter-spacing:1.5px;color:var(--text-dim);border-top:1px solid var(--border);
+  margin-top:4px;user-select:none;
+}
+.more-opts-hdr:hover{color:var(--text)}
+.more-opts-hdr .arrow{transition:transform .2s;font-size:9px}
+.more-opts-hdr.open .arrow{transform:rotate(90deg)}
+.more-opts-body{display:none;flex-direction:column;gap:10px;padding-top:8px}
+.more-opts-body.open{display:flex}
+#prompt-audio-btn{
+  width:100%;height:34px;border:1px dashed var(--border);background:none;
+  color:var(--text-dim);font-family:inherit;font-size:10px;text-transform:uppercase;
+  letter-spacing:1px;cursor:pointer;border-radius:2px;transition:border-color .15s;
+  position:relative;
+}
+#prompt-audio-btn:hover{border-color:var(--gold);color:var(--gold)}
+#prompt-audio-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
 /* ── DROP ZONE ────────────────────────────────────────────────────── */
 .drop-zone{
   border:1px dashed var(--border);border-radius:2px;display:flex;
@@ -390,26 +428,65 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
       <button class="panel-tab" data-ptab="references" onclick="switchPTab(this)">REFS</button>
     </div>
     <div class="tab-content active" id="ptab-notation">
-      <label>KARPLUS-STRONG NOTATION</label>
-      <textarea id="ks-notation" placeholder="A2 E3 A3 C4 E4">F2 C3 F3 Ab3 C4
+      <!-- + Audio attachment -->
+      <button id="prompt-audio-btn">
+        <input type="file" multiple onchange="loadSamples(this.files)" accept="audio/*,.wav,.aiff,.aif,.mp3">
+        + AUDIO
+      </button>
+
+      <!-- Lyrics / Prompt -->
+      <div class="section-label" style="margin-top:10px">LYRICS / PROMPT</div>
+      <textarea id="lyrics-prompt" rows="4" placeholder="Write lyrics or a prompt, or leave empty for instrumental" oninput="state.prompt=this.value" style="min-height:80px"></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <button class="toggle-pill active" id="instrumental-toggle" onclick="toggleInstrumental(this)">◎ INSTRUMENTAL</button>
+      </div>
+
+      <!-- Styles -->
+      <div class="section-label" style="margin-top:10px">STYLES</div>
+      <textarea id="styles-prompt" rows="2" placeholder="Describe what you want your beat to sound like" oninput="state.stylesText=this.value" style="min-height:52px"></textarea>
+      <div class="style-chips" id="style-chips-row">
+        <button class="style-chip active" data-style="dark" onclick="toggleStyleChip(this)">DARK</button>
+        <button class="style-chip active" data-style="lo-fi" onclick="toggleStyleChip(this)">LO-FI</button>
+        <button class="style-chip active" data-style="boom-bap" onclick="toggleStyleChip(this)">BOOM-BAP</button>
+        <button class="style-chip" data-style="dusty" onclick="toggleStyleChip(this)">DUSTY</button>
+        <button class="style-chip" data-style="soul" onclick="toggleStyleChip(this)">SOUL</button>
+        <button class="style-chip" data-style="trap" onclick="toggleStyleChip(this)">TRAP</button>
+        <button class="style-chip" data-style="jazz" onclick="toggleStyleChip(this)">JAZZ</button>
+        <button class="style-chip" data-style="ambient" onclick="toggleStyleChip(this)">AMBIENT</button>
+      </div>
+
+      <!-- Song Title -->
+      <div class="section-label" style="margin-top:10px">SONG TITLE</div>
+      <input type="text" id="song-title-input" placeholder="Untitled" oninput="state.songTitle=this.value;updateFilenamePreview()">
+
+      <!-- More Options (technical controls) -->
+      <div class="more-opts-hdr" id="more-opts-hdr" onclick="toggleMoreOpts()">
+        <span>MORE OPTIONS</span><span class="arrow">▶</span>
+      </div>
+      <div class="more-opts-body" id="more-opts-body">
+        <div>
+          <label>NOTATION OVERRIDE</label>
+          <textarea id="ks-notation" placeholder="A2 E3 A3 C4 E4 — leave blank to auto-generate" style="min-height:60px;font-size:10px">F2 C3 F3 Ab3 C4
 Bb1 F2 Bb2 D3 F3
 Ab1 Eb2 Ab2 C3 Eb3</textarea>
-      <div class="section-label">TUNING</div>
-      <label>MODE</label>
-      <select id="tuning-select" onchange="state.tuning=this.value">
-        <option value="dropE">DROP E</option>
-        <option value="standard">STANDARD</option>
-        <option value="dropD">DROP D</option>
-      </select>
-      <label style="margin-top:8px">SWING</label>
-      <div class="slider-row">
-        <input type="range" min="0" max="1" step="0.01" value="0.30" oninput="state.swing=+this.value;this.nextElementSibling.textContent=this.value">
-        <span class="slider-val">0.30</span>
-      </div>
-      <label>DECAY</label>
-      <div class="slider-row">
-        <input type="range" min="0.980" max="0.999" step="0.001" value="0.995" oninput="state.decay=+this.value;this.nextElementSibling.textContent=this.value">
-        <span class="slider-val">0.995</span>
+        </div>
+        <div class="section-label">TUNING</div>
+        <label>MODE</label>
+        <select id="tuning-select" onchange="state.tuning=this.value">
+          <option value="dropE">DROP E</option>
+          <option value="standard">STANDARD</option>
+          <option value="dropD">DROP D</option>
+        </select>
+        <label style="margin-top:8px">SWING</label>
+        <div class="slider-row">
+          <input type="range" min="0" max="1" step="0.01" value="0.30" oninput="state.swing=+this.value;this.nextElementSibling.textContent=this.value">
+          <span class="slider-val">0.30</span>
+        </div>
+        <label>DECAY</label>
+        <div class="slider-row">
+          <input type="range" min="0.980" max="0.999" step="0.001" value="0.995" oninput="state.decay=+this.value;this.nextElementSibling.textContent=this.value">
+          <span class="slider-val">0.995</span>
+        </div>
       </div>
     </div>
     <div class="tab-content" id="ptab-samples">
@@ -701,6 +778,8 @@ const state = {
   eruptionGate:false,isPlaying:false,audioCtx:null,analyserNode:null,
   compileDone:false,bpm:122,bars:8,swing:0.30,decay:0.995,tuning:'dropE',
   refTarget:'grouxx',
+  prompt:'',stylesText:'',instrumental:true,songTitle:'',
+  activeStyles:new Set(['dark','lo-fi','boom-bap']),
   cash:{soul:0.8,sub:0.9,drums:0.85,vinyl:0.4},
   eruption:{fuzz:0.5,hpFloor:120,duration:2},
   lofi:{crackle:0.2,hiss:0.1,wow:0.15,warmth:0.5},
@@ -757,10 +836,40 @@ document.getElementById('settings-overlay').addEventListener('click', e => {
 });
 
 // ── CLAUDE AI BUILD ────────────────────────────────────────────────────────────
+// ── PROMPT UI HANDLERS ────────────────────────────────────────────────────────
+function toggleInstrumental(btn) {
+  state.instrumental = !state.instrumental;
+  btn.classList.toggle('active', state.instrumental);
+  btn.textContent = state.instrumental ? '◎ INSTRUMENTAL' : '◎ VOCAL';
+  const ta = document.getElementById('lyrics-prompt');
+  ta.style.opacity = state.instrumental ? '0.4' : '1';
+  ta.placeholder = state.instrumental
+    ? 'Leave empty — instrumental mode'
+    : 'Write lyrics or a prompt';
+}
+
+function toggleStyleChip(btn) {
+  const s = btn.dataset.style;
+  if (state.activeStyles.has(s)) { state.activeStyles.delete(s); btn.classList.remove('active'); }
+  else { state.activeStyles.add(s); btn.classList.add('active'); }
+}
+
+function toggleMoreOpts() {
+  const hdr = document.getElementById('more-opts-hdr');
+  const body = document.getElementById('more-opts-body');
+  hdr.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
 async function aiGenerateNotation() {
   const apiKey = localStorage.getItem('melegi_api_key');
   if (!apiKey) return null;
   compileLog('AI BUILD — CALLING CLAUDE...', 'info');
+  const chips = [...state.activeStyles].join(', ');
+  const stylesDesc = [state.stylesText, chips].filter(Boolean).join(' · ') || 'dark, lo-fi, boom-bap';
+  const promptExtra = !state.instrumental && state.prompt
+    ? ` The lyrics/theme is: "${state.prompt.slice(0,120)}".`
+    : '';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -775,7 +884,7 @@ async function aiGenerateNotation() {
         max_tokens: 128,
         messages: [{
           role: 'user',
-          content: `You are MELEGI, a boom-bap beat compiler. Generate exactly 8 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat in F minor, dark/dusty style. Target spectral centroid: 757 Hz. Return ONLY the notes space-separated (e.g. "F2 C3 Ab3 Eb4 F4 Ab2 C3 Eb3"). No explanation.`
+          content: `You are MELEGI, a boom-bap beat compiler. Generate exactly 8 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat. Style: ${stylesDesc}.${promptExtra} Target spectral centroid: 757 Hz. Return ONLY the notes space-separated (e.g. "F2 C3 Ab3 Eb4 F4 Ab2 C3 Eb3"). No explanation.`
         }]
       })
     });
@@ -1437,7 +1546,8 @@ function selectKey(el) {
 function updateFilenamePreview() {
   const cfg=EXPORT_CONFIGS[state.exportTarget];
   const d=new Date(); const ds=d.getFullYear()+(''+(d.getMonth()+1)).padStart(2,'0')+(''+(d.getDate())).padStart(2,'0');
-  document.getElementById('filename-preview').textContent='MELEGI_'+cfg.label+'_'+state.bpm+'bpm_'+state.exportKey+'_'+ds+'.wav';
+  const titlePart = state.songTitle ? '_'+state.songTitle.trim().toUpperCase().replace(/\s+/g,'_').slice(0,20) : '';
+  document.getElementById('filename-preview').textContent='MELEGI_'+cfg.label+'_'+state.bpm+'bpm_'+state.exportKey+titlePart+'_'+ds+'.wav';
 }
 function setPreset(p,btn) {
   document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
