@@ -559,22 +559,25 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <button class="btn danger" id="eruption-btn" onclick="toggleEruption()">ERUPTION DETONATE</button>
       <button class="btn" id="export-quick-btn" onclick="quickExport()" disabled>QUICK EXPORT</button>
       <div class="sep"></div>
-      <div class="section-label">CASH LAYERS</div>
-      <div class="slider-row"><label>SOUL</label><input type="range" min="0" max="1" step="0.01" value="0.8" oninput="state.cash.soul=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.80</span></div>
-      <div class="slider-row"><label>SUB</label><input type="range" min="0" max="1" step="0.01" value="0.9" oninput="state.cash.sub=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.90</span></div>
-      <div class="slider-row"><label>DRUMS</label><input type="range" min="0" max="1" step="0.01" value="0.85" oninput="state.cash.drums=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.85</span></div>
-      <div class="slider-row"><label>VINYL</label><input type="range" min="0" max="1" step="0.01" value="0.4" oninput="state.cash.vinyl=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.40</span></div>
-      <div class="sep"></div>
-      <div class="section-label">ERUPTION</div>
-      <div class="slider-row"><label>FUZZ</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.eruption.fuzz=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
-      <div class="slider-row"><label>HP FLOOR</label><input type="range" min="120" max="400" step="1" value="120" oninput="state.eruption.hpFloor=+this.value;this.nextElementSibling.textContent=this.value+'Hz'"><span class="slider-val">120Hz</span></div>
-      <div class="slider-row"><label>DURATION</label><input type="range" min="1" max="8" step="0.5" value="2" oninput="state.eruption.duration=+this.value;this.nextElementSibling.textContent=this.value+'s'"><span class="slider-val">2s</span></div>
-      <div class="sep"></div>
-      <div class="section-label">LO-FI</div>
-      <div class="slider-row"><label>CRACKLE</label><input type="range" min="0" max="1" step="0.01" value="0.2" oninput="state.lofi.crackle=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.20</span></div>
-      <div class="slider-row"><label>HISS</label><input type="range" min="0" max="1" step="0.01" value="0.1" oninput="state.lofi.hiss=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.10</span></div>
-      <div class="slider-row"><label>WOW/FLUTTER</label><input type="range" min="0" max="1" step="0.01" value="0.15" oninput="state.lofi.wow=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.15</span></div>
-      <div class="slider-row"><label>WARMTH</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.lofi.warmth=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
+      <div class="section-label" id="adv-toggle" onclick="toggleAdvanced()" style="cursor:pointer;display:flex;justify-content:space-between;user-select:none">ADVANCED <span id="adv-arrow" style="color:var(--gold)">▸</span></div>
+      <div id="adv-panel" style="display:none">
+        <div class="section-label">CASH LAYERS</div>
+        <div class="slider-row"><label>SOUL</label><input type="range" min="0" max="1" step="0.01" value="0.8" oninput="state.cash.soul=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.80</span></div>
+        <div class="slider-row"><label>SUB</label><input type="range" min="0" max="1" step="0.01" value="0.9" oninput="state.cash.sub=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.90</span></div>
+        <div class="slider-row"><label>DRUMS</label><input type="range" min="0" max="1" step="0.01" value="0.85" oninput="state.cash.drums=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.85</span></div>
+        <div class="slider-row"><label>VINYL</label><input type="range" min="0" max="1" step="0.01" value="0.4" oninput="state.cash.vinyl=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.40</span></div>
+        <div class="sep"></div>
+        <div class="section-label">ERUPTION</div>
+        <div class="slider-row"><label>FUZZ</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.eruption.fuzz=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
+        <div class="slider-row"><label>HP FLOOR</label><input type="range" min="120" max="400" step="1" value="120" oninput="state.eruption.hpFloor=+this.value;this.nextElementSibling.textContent=this.value+'Hz'"><span class="slider-val">120Hz</span></div>
+        <div class="slider-row"><label>DURATION</label><input type="range" min="1" max="8" step="0.5" value="2" oninput="state.eruption.duration=+this.value;this.nextElementSibling.textContent=this.value+'s'"><span class="slider-val">2s</span></div>
+        <div class="sep"></div>
+        <div class="section-label">LO-FI</div>
+        <div class="slider-row"><label>CRACKLE</label><input type="range" min="0" max="1" step="0.01" value="0.2" oninput="state.lofi.crackle=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.20</span></div>
+        <div class="slider-row"><label>HISS</label><input type="range" min="0" max="1" step="0.01" value="0.1" oninput="state.lofi.hiss=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.10</span></div>
+        <div class="slider-row"><label>WOW/FLUTTER</label><input type="range" min="0" max="1" step="0.01" value="0.15" oninput="state.lofi.wow=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.15</span></div>
+        <div class="slider-row"><label>WARMTH</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.lofi.warmth=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
+      </div>
       <div class="sep"></div>
       <div class="section-label">MASTER</div>
       <div class="slider-row"><label>BARS</label><input type="range" min="2" max="16" step="2" value="8" oninput="state.bars=+this.value;this.nextElementSibling.textContent=this.value"><span class="slider-val">8</span></div>
@@ -884,6 +887,14 @@ function clearMusicKey() {
   document.getElementById('music-key-status').className = 'api-status';
 }
 
+function toggleAdvanced() {
+  const panel = document.getElementById('adv-panel');
+  const arrow = document.getElementById('adv-arrow');
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▸' : '▾';
+}
+
 function toggleAiMusic() {
   state.aiMusicMode = !state.aiMusicMode;
   const btn = document.getElementById('ai-music-btn');
@@ -1014,6 +1025,44 @@ async function aiGenerateNotation() {
   }
 }
 
+// ── CONVOLUTION REVERB ─────────────────────────────────────────────────────────
+async function applyConvolutionReverb(samples, sr, mix = 0.25) {
+  const irLen = Math.floor(2.4 * sr);
+  // OfflineAudioContext length = dry signal + reverb tail room
+  const offCtx = new OfflineAudioContext(1, samples.length + irLen, sr);
+
+  // Synthetic exponential-decay room IR with 15ms pre-delay
+  const irBuf = offCtx.createBuffer(1, irLen, sr);
+  const irData = irBuf.getChannelData(0);
+  const predelay = Math.floor(0.015 * sr);
+  for (let i = predelay; i < irLen; i++) {
+    const t = (i - predelay) / sr;
+    irData[i] = (Math.random() * 2 - 1) * Math.exp(-3.5 * t);
+  }
+
+  const srcBuf = offCtx.createBuffer(1, samples.length, sr);
+  srcBuf.copyToChannel(samples, 0);
+
+  const src = offCtx.createBufferSource();
+  src.buffer = srcBuf;
+  const conv = offCtx.createConvolver();
+  conv.buffer = irBuf;
+  const dryGain = offCtx.createGain();
+  const wetGain = offCtx.createGain();
+  dryGain.gain.value = 1;
+  wetGain.gain.value = mix;
+
+  src.connect(dryGain);
+  src.connect(conv);
+  conv.connect(wetGain);
+  dryGain.connect(offCtx.destination);
+  wetGain.connect(offCtx.destination);
+
+  src.start();
+  const rendered = await offCtx.startRendering();
+  return rendered.getChannelData(0).slice(0, samples.length);
+}
+
 // ── AI MUSIC GENERATION ────────────────────────────────────────────────────────
 async function aiMusicGenerate(musicKey, prompt, durationSeconds) {
   const res = await fetch('https://api.elevenlabs.io/v1/music/generations', {
@@ -1078,29 +1127,33 @@ async function runAiMusicBuild(musicKey) {
 
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
   const eq = applyEQChain(samples, FINGERPRINT_EQ, sr);
-  setProgress(75);
+  setProgress(72);
+
+  compileLog('APPLYING ROOM REVERB...', 'ok');
+  const revd = await applyConvolutionReverb(eq, sr, 0.22);
+  setProgress(82);
 
   compileLog('NORMALIZING + BRICK WALL LIMITER...', 'ok');
   let peak = 0;
-  for (let i = 0; i < eq.length; i++) peak = Math.max(peak, Math.abs(eq[i]));
+  for (let i = 0; i < revd.length; i++) peak = Math.max(peak, Math.abs(revd[i]));
   const ceiling = Math.pow(10, -1/20);
   if (peak > 0) {
     const g = ceiling / peak;
-    for (let i = 0; i < eq.length; i++) {
-      eq[i] *= g;
-      if (eq[i] > ceiling) eq[i] = ceiling;
-      if (eq[i] < -ceiling) eq[i] = -ceiling;
+    for (let i = 0; i < revd.length; i++) {
+      revd[i] *= g;
+      if (revd[i] > ceiling) revd[i] = ceiling;
+      if (revd[i] < -ceiling) revd[i] = -ceiling;
     }
   }
-  setProgress(90);
+  setProgress(92);
 
-  const masterBuf = state.audioCtx.createBuffer(1, eq.length, sr);
-  masterBuf.copyToChannel(eq, 0);
+  const masterBuf = state.audioCtx.createBuffer(1, revd.length, sr);
+  masterBuf.copyToChannel(revd, 0);
   state.masterBuffer = masterBuf;
   state.compileDone = true;
-  updateCompileMeters(eq, sr);
+  updateCompileMeters(revd, sr);
   setProgress(100);
-  compileLog('AI MUSIC BUILD COMPLETE — ' + eq.length + ' SAMPLES @ ' + sr + 'Hz', 'info');
+  compileLog('AI MUSIC BUILD COMPLETE — ' + revd.length + ' SAMPLES @ ' + sr + 'Hz', 'info');
   return true;
 }
 
@@ -1220,7 +1273,9 @@ function compileLog(msg, cls='') {
 // ── COMPILE ───────────────────────────────────────────────────────────────────
 async function runCompile() {
   ensureAudioCtx();
-  document.getElementById('compile-btn').disabled = true;
+  const compileBtn = document.getElementById('compile-btn');
+  compileBtn.disabled = true;
+  compileBtn.textContent = 'GENERATING…';
   document.getElementById('progress-bar-wrap').style.display = 'block';
   setProgress(0);
 
@@ -1229,11 +1284,13 @@ async function runCompile() {
   if (state.aiMusicMode && musicKey) {
     const ok = await runAiMusicBuild(musicKey);
     if (ok) {
-      document.getElementById('compile-btn').disabled = false;
+      compileBtn.disabled = false;
+      compileBtn.textContent = 'BUILD';
       document.getElementById('export-quick-btn').disabled = false;
       document.getElementById('render-btn').disabled = false;
       setTimeout(() => { document.getElementById('progress-bar-wrap').style.display='none'; setProgress(0); }, 800);
       drawViz();
+      if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
       return;
     }
     compileLog('AI MUSIC FAILED — FALLING BACK TO KS SYNTHESIS', 'warn');
@@ -1306,8 +1363,10 @@ async function runCompile() {
   const hatPat  =[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0];
   const openHats=new Set([7,15]);
   const snareBuf=synthSnare(sr,0.3);
+  const humanMaxSamples = Math.floor(0.010 * sr); // ±10ms timing jitter
   for (let s = 0; s < totalBeats*steps; s++) {
-    const start = Math.floor(s*(spb/steps)*sr);
+    const jitter = Math.floor((Math.random() - 0.5) * 2 * humanMaxSamples);
+    const start = Math.max(0, Math.floor(s*(spb/steps)*sr) + jitter);
     if (snarePat[s%snarePat.length]) {
       const sg=state.cash.drums*cashGain*0.6;
       for (let i=0;i<snareBuf.length&&start+i<totalSamples;i++) master[start+i]+=snareBuf[i]*sg;
@@ -1343,7 +1402,14 @@ async function runCompile() {
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
   const eq = applyEQChain(master, FINGERPRINT_EQ, sr);
   for (let i=0;i<master.length;i++) master[i]=eq[i];
-  setProgress(75);
+  setProgress(72);
+
+  // 6.5 Room reverb
+  compileLog('APPLYING ROOM REVERB...', 'ok');
+  const revMix = Math.min(0.12 + state.lofi.warmth * 0.18, 0.30);
+  const revArr = await applyConvolutionReverb(master, sr, revMix);
+  for (let i=0;i<master.length;i++) master[i]=revArr[i];
+  setProgress(80);
 
   // 7. Eruption
   if (state.eruptionGate) {
@@ -1380,11 +1446,14 @@ async function runCompile() {
   setProgress(100);
   compileLog('BUILD COMPLETE — ' + totalSamples + ' SAMPLES @ ' + sr + 'Hz', 'info');
 
-  document.getElementById('compile-btn').disabled = false;
+  compileBtn.disabled = false;
+  compileBtn.textContent = 'BUILD';
   document.getElementById('export-quick-btn').disabled = false;
   document.getElementById('render-btn').disabled = false;
   setTimeout(() => { document.getElementById('progress-bar-wrap').style.display='none'; setProgress(0); }, 800);
   drawViz();
+  // Auto-play like Suno — play immediately after generation
+  if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
 }
 
 function setProgress(p) { document.getElementById('progress-bar').style.width = p+'%'; }
