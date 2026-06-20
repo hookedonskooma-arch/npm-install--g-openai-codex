@@ -1026,19 +1026,29 @@ async function aiGenerateNotation() {
 }
 
 // ── CONVOLUTION REVERB ─────────────────────────────────────────────────────────
+let _irCache = null, _irSr = null;
+
 async function applyConvolutionReverb(samples, sr, mix = 0.25) {
   const irLen = Math.floor(2.4 * sr);
-  // OfflineAudioContext length = dry signal + reverb tail room
-  const offCtx = new OfflineAudioContext(1, samples.length + irLen, sr);
 
-  // Synthetic exponential-decay room IR with 15ms pre-delay
-  const irBuf = offCtx.createBuffer(1, irLen, sr);
-  const irData = irBuf.getChannelData(0);
-  const predelay = Math.floor(0.015 * sr);
-  for (let i = predelay; i < irLen; i++) {
-    const t = (i - predelay) / sr;
-    irData[i] = (Math.random() * 2 - 1) * Math.exp(-3.5 * t);
+  if (!_irCache || _irSr !== sr) {
+    _irSr = sr;
+    _irCache = new Float32Array(irLen);
+    const predelay = Math.floor(0.015 * sr);
+    let seed = 0x9e3779b9;
+    const rand = () => {
+      seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+      return ((seed >>> 0) / 0xffffffff) * 2 - 1;
+    };
+    for (let i = predelay; i < irLen; i++) {
+      const t = (i - predelay) / sr;
+      _irCache[i] = rand() * Math.exp(-3.5 * t);
+    }
   }
+
+  const offCtx = new OfflineAudioContext(1, samples.length + irLen, sr);
+  const irBuf = offCtx.createBuffer(1, irLen, sr);
+  irBuf.copyToChannel(_irCache, 0);
 
   const srcBuf = offCtx.createBuffer(1, samples.length, sr);
   srcBuf.copyToChannel(samples, 0);
