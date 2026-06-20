@@ -896,6 +896,17 @@ function toggleAdvanced() {
 }
 
 function toggleAiMusic() {
+  const musicKey = localStorage.getItem('melegi_music_key');
+  if (!state.aiMusicMode && !musicKey) {
+    const gear = document.getElementById('settings-btn');
+    if (gear) {
+      const orig = gear.style.color;
+      gear.style.color = 'var(--gold)';
+      gear.style.fontSize = '18px';
+      setTimeout(() => { gear.style.color = orig; gear.style.fontSize = ''; }, 1800);
+    }
+    compileLog('AI MUSIC: ADD ELEVENLABS KEY IN ⚙ SETTINGS BEFORE BUILDING', 'warn');
+  }
   state.aiMusicMode = !state.aiMusicMode;
   const btn = document.getElementById('ai-music-btn');
   if (state.aiMusicMode) {
@@ -903,8 +914,7 @@ function toggleAiMusic() {
     btn.style.borderColor = 'rgba(147,51,234,.8)';
     btn.style.color = 'var(--gold-light)';
     btn.style.opacity = '1';
-    const hasKey = !!localStorage.getItem('melegi_music_key');
-    compileLog('AI MUSIC MODE ON' + (hasKey ? '' : ' — ADD ELEVENLABS KEY IN ⚙ SETTINGS'), 'info');
+    compileLog('AI MUSIC MODE ON' + (musicKey ? '' : ' — SET KEY IN ⚙'), 'info');
   } else {
     btn.textContent = 'OFF';
     btn.style.borderColor = 'rgba(147,51,234,.25)';
