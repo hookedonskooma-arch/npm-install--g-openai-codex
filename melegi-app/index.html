@@ -211,7 +211,7 @@ input:focus,select:focus{outline:none;border-color:var(--gold)}
 .info-val{color:var(--text);font-weight:500}
 .analysis-section{display:none;flex-direction:column;gap:10px}
 .analysis-section.visible{display:flex}
-#refine-file-info{flex-direction:column;gap:6px}
+#refine-file-info{display:none;flex-direction:column;gap:6px}
 #refine-file-info.visible{display:flex}
 
 /* ── ANALYZE PAGE ─────────────────────────────────────────────────── */
@@ -498,7 +498,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <span class="drop-zone-label">DROP SUNO WAV</span>
       <span class="drop-zone-sub">WAV · AIFF · MP3</span>
     </div>
-    <div id="refine-file-info" style="display:none">
+    <div id="refine-file-info">
       <div class="info-row"><span class="info-key">FILE</span><span class="info-val" id="rfi-name">—</span></div>
       <div class="info-row"><span class="info-key">DURATION</span><span class="info-val" id="rfi-dur">—</span></div>
       <div class="info-row"><span class="info-key">SAMPLE RATE</span><span class="info-val" id="rfi-sr">—</span></div>
