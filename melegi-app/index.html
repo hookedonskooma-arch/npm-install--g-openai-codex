@@ -1123,7 +1123,14 @@ async function runAiMusicBuild(musicKey) {
   compileLog('AI MUSIC — DECODED: ' + audioBuf.duration.toFixed(1) + 's @ ' + audioBuf.sampleRate + 'Hz', 'ok');
 
   const sr = audioBuf.sampleRate;
-  let samples = Float32Array.from(audioBuf.getChannelData(0));
+  const numCh = audioBuf.numberOfChannels;
+  const len = audioBuf.length;
+  const mono = new Float32Array(len);
+  for (let c = 0; c < numCh; c++) {
+    const chData = audioBuf.getChannelData(c);
+    for (let i = 0; i < len; i++) mono[i] += chData[i] / numCh;
+  }
+  let samples = mono;
 
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
   const eq = applyEQChain(samples, FINGERPRINT_EQ, sr);
