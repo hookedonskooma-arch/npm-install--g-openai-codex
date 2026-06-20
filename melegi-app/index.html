@@ -819,7 +819,8 @@ const state = {
   exportTarget:'beatstars',exportBars:8,exportKey:'FMINOR',
   exportHistory:[],currentSource:null,rafId:null,driftInterval:null,
   vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[],
-  aiMusicMode:false
+  aiMusicMode:false,
+  irCache:null,irSr:null
 };
 
 // ── API KEY ────────────────────────────────────────────────────────────────────
@@ -1036,14 +1037,12 @@ async function aiGenerateNotation() {
 }
 
 // ── CONVOLUTION REVERB ─────────────────────────────────────────────────────────
-let _irCache = null, _irSr = null;
-
 async function applyConvolutionReverb(samples, sr, mix = 0.25) {
   const irLen = Math.floor(2.4 * sr);
 
-  if (!_irCache || _irSr !== sr) {
-    _irSr = sr;
-    _irCache = new Float32Array(irLen);
+  if (!state.irCache || state.irSr !== sr) {
+    state.irSr = sr;
+    state.irCache = new Float32Array(irLen);
     const predelay = Math.floor(0.015 * sr);
     let seed = 0x9e3779b9;
     const rand = () => {
@@ -1052,13 +1051,13 @@ async function applyConvolutionReverb(samples, sr, mix = 0.25) {
     };
     for (let i = predelay; i < irLen; i++) {
       const t = (i - predelay) / sr;
-      _irCache[i] = rand() * Math.exp(-3.5 * t);
+      state.irCache[i] = rand() * Math.exp(-3.5 * t);
     }
   }
 
   const offCtx = new OfflineAudioContext(1, samples.length + irLen, sr);
   const irBuf = offCtx.createBuffer(1, irLen, sr);
-  irBuf.copyToChannel(_irCache, 0);
+  irBuf.copyToChannel(state.irCache, 0);
 
   const srcBuf = offCtx.createBuffer(1, samples.length, sr);
   srcBuf.copyToChannel(samples, 0);
@@ -1219,15 +1218,15 @@ function synthSnare(sr, dur=0.3) {
     const body = (Math.sin(2*Math.PI*185*t) + Math.sin(2*Math.PI*280*t) * 0.6)
                  * Math.exp(-t * 18) * 0.22;
     const snap  = (Math.random() * 2 - 1) * Math.exp(-t * 60)
-                 * (i < sr * 0.003 ? 1 : 0) * 0.4;
-    const noise = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.7;
-    buf[i] = body + snap + noise;
+                 * (i < sr * 0.003 ? 1 : 0) * 0.35;
+    const noise = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.55;
+    buf[i] = Math.tanh(body + snap + noise);
   }
   return buf;
 }
 
 function synthHiHat(sr, dur=0.08, open=false) {
-  const actualDur = open ? dur * 5 : dur;
+  const actualDur = open ? dur * 6 : dur;
   const len = Math.floor(sr * actualDur), buf = new Float32Array(len);
   const decayRate = open ? 6 : 38;
   const freqs = [8010, 8653, 10234, 11803, 14523, 16847];
@@ -1330,6 +1329,10 @@ async function runCompile() {
 
   // ── AI MUSIC path ──────────────────────────────────────────────────────────
   const musicKey = localStorage.getItem('melegi_music_key');
+  if (state.aiMusicMode && !musicKey) {
+    compileLog('AI MUSIC MODE ON BUT NO KEY SET — ADD ELEVENLABS KEY IN ⚙ SETTINGS', 'warn');
+    compileLog('FALLING BACK TO KS SYNTHESIS', 'info');
+  }
   if (state.aiMusicMode && musicKey) {
     const ok = await runAiMusicBuild(musicKey);
     if (ok) {
