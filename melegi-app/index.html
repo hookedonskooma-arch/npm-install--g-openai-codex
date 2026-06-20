@@ -416,6 +416,17 @@ body::before{
     </div>
     <button class="btn primary" onclick="saveMusicKey()">SAVE MUSIC KEY</button>
     <button class="btn" onclick="clearMusicKey()" style="border-color:var(--red);color:var(--red)">CLEAR</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div>
+      <label>MUSIC AI KEY (STABILITY AI)</label>
+      <input type="password" id="stability-key-input" placeholder="sk-..." autocomplete="off">
+      <div class="api-status" id="stability-key-status"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7">
+      Stability AI key for Stable Audio. Alternative to ElevenLabs — select provider in BUILD panel.
+    </div>
+    <button class="btn primary" onclick="saveStabilityKey()">SAVE STABILITY KEY</button>
+    <button class="btn" onclick="clearStabilityKey()" style="border-color:var(--red);color:var(--red)">CLEAR</button>
   </div>
 </div>
 
@@ -552,7 +563,11 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
     <div class="right-inner">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim)">AI MUSIC</span>
-        <button id="ai-music-btn" onclick="toggleAiMusic()" class="btn" style="font-size:8px;letter-spacing:1px;padding:2px 8px;border-color:rgba(147,51,234,.25);color:var(--text-dim);opacity:0.5">OFF</button>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button id="ai-provider-eleven" onclick="setAiProvider('elevenlabs')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.6);color:var(--gold-light)">ELEVEN</button>
+          <button id="ai-provider-stability" onclick="setAiProvider('stability')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.25);color:var(--text-dim)">STABILITY</button>
+          <button id="ai-music-btn" onclick="toggleAiMusic()" class="btn" style="font-size:8px;letter-spacing:1px;padding:2px 8px;border-color:rgba(147,51,234,.25);color:var(--text-dim);opacity:0.5">OFF</button>
+        </div>
       </div>
       <button class="btn primary" id="compile-btn" onclick="runCompile()" style="height:48px;font-size:13px;letter-spacing:2px">BUILD</button>
       <button class="btn" id="demo-btn" onclick="loadDemo()" style="font-size:9px;letter-spacing:1.5px;border-color:rgba(147,51,234,.4);color:#7a6d9a;margin-bottom:4px">▶ DEMO: THE FLOOR GAVE UP</button>
@@ -820,6 +835,7 @@ const state = {
   exportHistory:[],currentSource:null,rafId:null,driftInterval:null,
   vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[],
   aiMusicMode:false,
+  aiMusicProvider:'elevenlabs',
   irCache:null,irSr:null
 };
 
@@ -831,6 +847,8 @@ function loadApiKey() {
   updateApiIndicator(!!key);
   const mKey = localStorage.getItem('melegi_music_key') || '';
   document.getElementById('music-key-input').value = mKey;
+  const sKey = localStorage.getItem('melegi_stability_key') || '';
+  document.getElementById('stability-key-input').value = sKey ? '••••••••••••••••' : '';
 }
 
 function saveApiKey() {
@@ -887,6 +905,38 @@ function clearMusicKey() {
   document.getElementById('music-key-status').textContent = 'MUSIC KEY CLEARED';
   document.getElementById('music-key-status').className = 'api-status';
 }
+function saveStabilityKey() {
+  const key = document.getElementById('stability-key-input').value.trim();
+  if (key) {
+    localStorage.setItem('melegi_stability_key', key);
+    document.getElementById('stability-key-status').textContent = 'STABILITY KEY SAVED';
+    document.getElementById('stability-key-status').className = 'api-status ok';
+    setTimeout(closeSettings, 1000);
+  } else {
+    document.getElementById('stability-key-status').textContent = 'ENTER A VALID KEY';
+    document.getElementById('stability-key-status').className = 'api-status err';
+  }
+}
+function clearStabilityKey() {
+  localStorage.removeItem('melegi_stability_key');
+  document.getElementById('stability-key-input').value = '';
+  document.getElementById('stability-key-status').textContent = 'STABILITY KEY CLEARED';
+  document.getElementById('stability-key-status').className = 'api-status';
+}
+function setAiProvider(provider) {
+  state.aiMusicProvider = provider;
+  const eleven = document.getElementById('ai-provider-eleven');
+  const stab = document.getElementById('ai-provider-stability');
+  if (provider === 'elevenlabs') {
+    eleven.style.borderColor = 'rgba(147,51,234,.6)'; eleven.style.color = 'var(--gold-light)';
+    stab.style.borderColor = 'rgba(147,51,234,.25)'; stab.style.color = 'var(--text-dim)';
+    compileLog('AI MUSIC PROVIDER: ELEVENLABS', 'info');
+  } else {
+    stab.style.borderColor = 'rgba(147,51,234,.6)'; stab.style.color = 'var(--gold-light)';
+    eleven.style.borderColor = 'rgba(147,51,234,.25)'; eleven.style.color = 'var(--text-dim)';
+    compileLog('AI MUSIC PROVIDER: STABILITY AI', 'info');
+  }
+}
 
 function toggleAdvanced() {
   const panel = document.getElementById('adv-panel');
@@ -898,7 +948,9 @@ function toggleAdvanced() {
 
 function toggleAiMusic() {
   const musicKey = localStorage.getItem('melegi_music_key');
-  if (!state.aiMusicMode && !musicKey) {
+  const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
+  if (!state.aiMusicMode && !activeKey) {
     const gear = document.getElementById('settings-btn');
     if (gear) {
       const orig = gear.style.color;
@@ -915,7 +967,7 @@ function toggleAiMusic() {
     btn.style.borderColor = 'rgba(147,51,234,.8)';
     btn.style.color = 'var(--gold-light)';
     btn.style.opacity = '1';
-    compileLog('AI MUSIC MODE ON' + (musicKey ? '' : ' — SET KEY IN ⚙'), 'info');
+    compileLog('AI MUSIC MODE ON' + (activeKey ? '' : ' — SET KEY IN ⚙'), 'info');
   } else {
     btn.textContent = 'OFF';
     btn.style.borderColor = 'rgba(147,51,234,.25)';
@@ -1102,7 +1154,28 @@ async function aiMusicGenerate(musicKey, prompt, durationSeconds) {
   return res.arrayBuffer();
 }
 
-async function runAiMusicBuild(musicKey) {
+async function aiMusicGenerateStability(stabilityKey, prompt, durationSeconds) {
+  const form = new FormData();
+  form.append('prompt', prompt);
+  form.append('output_format', 'mp3');
+  form.append('seconds_total', String(Math.min(Math.ceil(durationSeconds), 190)));
+  form.append('seconds_start', '0');
+  const res = await fetch('https://api.stability.ai/v2beta/stable-audio', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + stabilityKey,
+      'Accept': 'audio/*'
+    },
+    body: form
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('Stability AI ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
+async function runAiMusicBuild(musicKey, stabilityKey) {
   const chips = [...state.activeStyles].join(', ');
   const styleText = [state.stylesText, chips].filter(Boolean).join(', ');
   const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',
@@ -1115,13 +1188,18 @@ async function runAiMusicBuild(musicKey) {
   const fullPrompt = promptParts.join('. ');
   const durationSeconds = Math.ceil(state.bars * 4 * 60 / state.bpm) + 2;
 
+  const provider = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
   compileLog('AI MUSIC — PROMPT: ' + fullPrompt.slice(0, 70) + (fullPrompt.length > 70 ? '…' : ''), 'info');
-  compileLog('AI MUSIC — REQUESTING ' + durationSeconds + 's FROM ELEVENLABS...', 'info');
+  compileLog('AI MUSIC — REQUESTING ' + durationSeconds + 's FROM ' + provider + '...', 'info');
   setProgress(15);
 
   let audioData;
   try {
-    audioData = await aiMusicGenerate(musicKey, fullPrompt, durationSeconds);
+    if (state.aiMusicProvider === 'stability') {
+      audioData = await aiMusicGenerateStability(stabilityKey, fullPrompt, durationSeconds);
+    } else {
+      audioData = await aiMusicGenerate(musicKey, fullPrompt, durationSeconds);
+    }
   } catch(e) {
     compileLog('AI MUSIC ERROR: ' + e.message, 'warn');
     return false;
@@ -1339,12 +1417,15 @@ async function runCompile() {
 
   // ── AI MUSIC path ──────────────────────────────────────────────────────────
   const musicKey = localStorage.getItem('melegi_music_key');
-  if (state.aiMusicMode && !musicKey) {
-    compileLog('AI MUSIC MODE ON BUT NO KEY SET — ADD ELEVENLABS KEY IN ⚙ SETTINGS', 'warn');
+  const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
+  const providerLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
+  if (state.aiMusicMode && !activeKey) {
+    compileLog('AI MUSIC MODE ON BUT NO ' + providerLabel + ' KEY — ADD IN ⚙ SETTINGS', 'warn');
     compileLog('FALLING BACK TO KS SYNTHESIS', 'info');
   }
-  if (state.aiMusicMode && musicKey) {
-    const ok = await runAiMusicBuild(musicKey);
+  if (state.aiMusicMode && activeKey) {
+    const ok = await runAiMusicBuild(musicKey, stabilityKey);
     if (ok) {
       compileBtn.disabled = false;
       compileBtn.textContent = 'BUILD';
