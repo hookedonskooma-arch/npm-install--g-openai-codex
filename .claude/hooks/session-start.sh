@@ -9,6 +9,9 @@ fi
 echo "[session-start] Installing Python dependencies..."
 pip install -r "$CLAUDE_PROJECT_DIR/requirements.txt" --quiet
 
+echo "[session-start] Installing web (Next.js) dependencies..."
+cd "$CLAUDE_PROJECT_DIR/web" && npm install --legacy-peer-deps --prefer-offline --silent
+
 # Build MELEGI C++ engine on first run (cached after that).
 # Soft-fail: a broken C++ build should not block the bot or PWA.
 MELEGI_BINARY="$CLAUDE_PROJECT_DIR/melegi/build/melegi_pipeline"
