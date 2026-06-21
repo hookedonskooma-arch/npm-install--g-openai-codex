@@ -1238,17 +1238,19 @@ async function runAiMusicBuild(musicKey, stabilityKey) {
   const revd = await applyConvolutionReverb(eq, sr, 0.22);
   setProgress(82);
 
-  compileLog('NORMALIZING + BRICK WALL LIMITER...', 'ok');
-  let peak = 0;
-  for (let i = 0; i < revd.length; i++) peak = Math.max(peak, Math.abs(revd[i]));
-  const ceiling = Math.pow(10, -1/20);
-  if (peak > 0) {
-    const g = ceiling / peak;
-    for (let i = 0; i < revd.length; i++) {
-      revd[i] *= g;
-      if (revd[i] > ceiling) revd[i] = ceiling;
-      if (revd[i] < -ceiling) revd[i] = -ceiling;
-    }
+  compileLog('NORMALIZING...', 'ok');
+  let aiq = 0;
+  for (let i = 0; i < revd.length; i++) aiq += revd[i] * revd[i];
+  const aiRms = Math.sqrt(aiq / revd.length);
+  const aiTarget = Math.pow(10, -12 / 20);
+  if (aiRms > 0) {
+    const g = Math.min(aiTarget / aiRms, 8);
+    for (let i = 0; i < revd.length; i++) revd[i] *= g;
+  }
+  const aiCeil = Math.pow(10, -0.1 / 20);
+  for (let i = 0; i < revd.length; i++) {
+    if (revd[i] > aiCeil) revd[i] = aiCeil;
+    else if (revd[i] < -aiCeil) revd[i] = -aiCeil;
   }
   setProgress(92);
 
@@ -1566,18 +1568,20 @@ async function runCompile() {
     }
   }
 
-  // 8. Normalize + limiter
-  compileLog('NORMALIZING + BRICK WALL LIMITER...', 'ok');
-  let peak = 0;
-  for (let i=0;i<master.length;i++) peak=Math.max(peak,Math.abs(master[i]));
-  const ceiling = Math.pow(10,-1/20);
-  if (peak>0) {
-    const g = ceiling/peak;
-    for (let i=0;i<master.length;i++) {
-      master[i]*=g;
-      if (master[i]>ceiling) master[i]=ceiling;
-      if (master[i]<-ceiling) master[i]=-ceiling;
-    }
+  // 8. Normalize to consistent preview level — EXPORT handles final LUFS
+  compileLog('NORMALIZING...', 'ok');
+  let msq = 0;
+  for (let i=0;i<master.length;i++) msq += master[i]*master[i];
+  const msRms = Math.sqrt(msq/master.length);
+  const msTarget = Math.pow(10, -12/20); // -12 dBFS RMS for preview
+  if (msRms > 0) {
+    const g = Math.min(msTarget/msRms, 8);
+    for (let i=0;i<master.length;i++) master[i] *= g;
+  }
+  const msCeil = Math.pow(10, -0.1/20); // hard ceiling at -0.1 dBFS
+  for (let i=0;i<master.length;i++) {
+    if (master[i] > msCeil) master[i] = msCeil;
+    else if (master[i] < -msCeil) master[i] = -msCeil;
   }
   setProgress(90);
 
@@ -2056,10 +2060,17 @@ async function renderAndDownload() {
   let sq=0;
   for(let i=0;i<resampled.length;i++) sq+=resampled[i]*resampled[i];
   const rms=Math.sqrt(sq/resampled.length), curLufs=rms>0?20*Math.log10(rms)-0.691:-80;
-  const gainLin=Math.pow(10,(cfg.lufs-curLufs)/20), ceiling=cfg.limit?Math.pow(10,-1/20):1;
-  for(let i=0;i<resampled.length;i++){
-    resampled[i]*=gainLin;
-    if(cfg.limit){if(resampled[i]>ceiling)resampled[i]=ceiling;if(resampled[i]<-ceiling)resampled[i]=-ceiling;}
+  const gainLin=Math.pow(10,(cfg.lufs-curLufs)/20);
+  for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
+  if(cfg.limit){
+    // True-peak limit: proportional rescale, no hard clipping distortion
+    const ceiling=Math.pow(10,-1/20);
+    let truePeak=0;
+    for(let i=0;i<resampled.length;i++) truePeak=Math.max(truePeak,Math.abs(resampled[i]));
+    if(truePeak>ceiling){
+      const rescale=ceiling/truePeak;
+      for(let i=0;i<resampled.length;i++) resampled[i]*=rescale;
+    }
   }
   document.getElementById('export-progress').style.width='70%';
   exportLog('ENCODING WAV...','');
