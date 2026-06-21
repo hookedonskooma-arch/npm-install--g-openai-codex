@@ -849,7 +849,7 @@ function loadApiKey() {
   const mKey = localStorage.getItem('melegi_music_key') || '';
   document.getElementById('music-key-input').value = mKey;
   const sKey = localStorage.getItem('melegi_stability_key') || '';
-  document.getElementById('stability-key-input').value = sKey ? '••••••••••••••••' : '';
+  document.getElementById('stability-key-input').value = '';
 }
 
 function saveApiKey() {
@@ -1602,8 +1602,10 @@ async function runCompile() {
   const _hasDARK  = state.activeStyles.has('dark');
   const _hasSOUL  = state.activeStyles.has('soul');
   const _hasDUSTY = state.activeStyles.has('dusty');
-  if (_hasDARK && !_hasSOUL) {
-    // Metal EQ: cut mud, boost chunk + presence, notch fizz
+  const _hasBoomBap = state.activeStyles.has('boom-bap');
+  const _hasLoFi    = state.activeStyles.has('lo-fi');
+  // Metal EQ: only when DARK is the dominant genre (no SOUL, BOOM-BAP, or LO-FI)
+  if (_hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi) {
     genreEQ.push(
       {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
       {type:'peaking', freq:900,  gain:2.5,  Q:0.8},
@@ -1612,11 +1614,11 @@ async function runCompile() {
     );
   }
   if (_hasDUSTY) {
-    // Memphis tape EQ: warm roll-off + mid pocket boost
-    genreEQ.push(
-      {type:'lowpass', freq:4000, gain:0,   Q:0.707},
-      {type:'peaking', freq:900,  gain:3.0, Q:0.8}
-    );
+    // Memphis tape EQ: warm roll-off + mid pocket boost (900 Hz skipped if DARK already pushed it)
+    genreEQ.push({type:'lowpass', freq:4000, gain:0, Q:0.707});
+    if (!(_hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi)) {
+      genreEQ.push({type:'peaking', freq:900, gain:3.0, Q:0.8});
+    }
   }
   const eq = applyEQChain(master, genreEQ, sr);
   for (let i=0;i<master.length;i++) master[i]=eq[i];
@@ -2134,7 +2136,7 @@ async function renderAndDownload() {
   const curLufs = measureLufsK(resampled, cfg.sr);
   // Guard: skip normalization if signal is silence (-80 sentinel) or only needs
   // a tiny boost (< +40 dB) to avoid catastrophic amplification of noise floor.
-  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  const gainLin = curLufs > -79 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
