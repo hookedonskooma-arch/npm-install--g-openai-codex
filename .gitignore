@@ -3,8 +3,11 @@
 .env.local
 .env.*.local
 
-# Claude
-.claude/
+# Claude — allow tracked config but exclude session/cache dirs
+.claude/*
+!.claude/skills/
+!.claude/hooks/
+!.claude/settings.json
 
 # Python
 __pycache__/
