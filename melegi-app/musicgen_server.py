@@ -55,6 +55,9 @@ def _encode_wav(tensor, sr: int) -> bytes:
     if tensor.dim() == 3:
         tensor = tensor.squeeze(0)
     samples = tensor.mean(0).cpu().float().numpy()          # mono mix
+    peak = float(abs(samples).max())
+    if peak > 0:
+        samples = samples / peak                              # normalize before clip
     samples = (samples * 32767.0).clip(-32768, 32767).astype('int16')
     n = len(samples)
     data_size = n * 2

@@ -1270,7 +1270,8 @@ async function runAiMusicBuild(musicKey, stabilityKey) {
   for (let i = 0; i < revd.length; i++) aiq += revd[i] * revd[i];
   const aiRms = Math.sqrt(aiq / revd.length);
   const aiTarget = Math.pow(10, -12 / 20);
-  if (aiRms > 0) {
+  const aiSilence = Math.pow(10, -60 / 20); // below -60 dBFS treat as silence
+  if (aiRms > aiSilence) {
     const g = Math.min(aiTarget / aiRms, 8);
     for (let i = 0; i < revd.length; i++) revd[i] *= g;
   }
@@ -1413,6 +1414,20 @@ function applyBiquad(samples, {b,a}) {
 function applyEQChain(s, bands, sr) {
   for (const b of bands) s = applyBiquad(s, makeBiquadCoeffs(b.type,b.freq,b.gain||0,b.Q,sr));
   return s;
+}
+
+// Approximate ITU-R BS.1770-4 K-weighted integrated loudness (LUFS).
+// Stage 1: high-shelf pre-filter (+4 dB at 1682 Hz) — boosts high-mids.
+// Stage 2: high-pass RLB weighting (38 Hz) — rolls off sub-bass.
+// Together these de-emphasize sub-bass and slightly boost presence, matching
+// how K-weighting lowers measured loudness for bass-heavy material vs raw RMS.
+function measureLufsK(samples, sr) {
+  const s1 = applyBiquad(samples, makeBiquadCoeffs('highshelf', 1682, 4, 0.7071, sr));
+  const s2 = applyBiquad(s1,      makeBiquadCoeffs('highpass',  38,   0, 0.5,    sr));
+  let ms = 0;
+  for (let i = 0; i < s2.length; i++) ms += s2[i] * s2[i];
+  ms /= s2.length;
+  return ms > 0 ? -0.691 + 10 * Math.log10(ms) : -80;
 }
 
 // ── NOTE PARSING ──────────────────────────────────────────────────────────────
@@ -1604,7 +1619,8 @@ async function runCompile() {
   for (let i=0;i<master.length;i++) msq += master[i]*master[i];
   const msRms = Math.sqrt(msq/master.length);
   const msTarget = Math.pow(10, -12/20); // -12 dBFS RMS for preview
-  if (msRms > 0) {
+  const msSilence = Math.pow(10, -60/20); // below -60 dBFS treat as silence
+  if (msRms > msSilence) {
     const g = Math.min(msTarget/msRms, 8);
     for (let i=0;i<master.length;i++) master[i] *= g;
   }
@@ -2087,9 +2103,7 @@ async function renderAndDownload() {
   }
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
-  let sq=0;
-  for(let i=0;i<resampled.length;i++) sq+=resampled[i]*resampled[i];
-  const rms=Math.sqrt(sq/resampled.length), curLufs=rms>0?20*Math.log10(rms)-0.691:-80;
+  const curLufs = measureLufsK(resampled, cfg.sr);
   const gainLin=Math.pow(10,(cfg.lufs-curLufs)/20);
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
