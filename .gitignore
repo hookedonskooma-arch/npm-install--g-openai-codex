@@ -1,7 +1,21 @@
+# Secrets
 .env
+.env.local
+.env.*.local
+
+# Claude — allow tracked config but exclude session/cache dirs
 .claude/*
 !.claude/skills/
 !.claude/hooks/
 !.claude/settings.json
+
+# Python
 __pycache__/
 *.py[cod]
+
+# Node / Next.js
+node_modules/
+.next/
+
+# Runtime data
+web/data/
