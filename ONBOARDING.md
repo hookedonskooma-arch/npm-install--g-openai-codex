@@ -9,9 +9,9 @@ Work Type Breakdown:
   Improve Quality  ████░░░░░░░░░░░░░░░░  20%
 
 Top Skills & Commands:
-  /code-review  ████████████████████  recurring
-  /loop         ████████░░░░░░░░░░░░  recurring
-  /goal         ████░░░░░░░░░░░░░░░░  recurring
+  /compact         ████████████████████  4x
+  /code-review     ████████░░░░░░░░░░░░  1x
+  /team-onboarding ████░░░░░░░░░░░░░░░░  1x
 
 Top MCP Servers:
   (none configured in the last 30 days — check with the team if any have since been added)
@@ -44,6 +44,8 @@ Top MCP Servers:
   Use after any change to `melegi-app/index.html`.
 - `/deep-research` — fan-out web research pass. The team front-loads this before any
   new AI music generation approach.
+- `/compact` — compresses conversation context when sessions run long. Use it proactively
+  on long coding sessions before hitting the context limit — the summary carries forward.
 
 ## Team Tips
 
