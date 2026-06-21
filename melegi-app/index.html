@@ -1578,6 +1578,14 @@ async function runCompile() {
     if (state.lofi.hiss>0) master[i]+=(Math.random()*2-1)*state.lofi.hiss*0.03;
     if (state.lofi.wow>0) master[i]*=1+Math.sin(2*Math.PI*0.7*t)*state.lofi.wow*0.003;
   }
+  // vinyl-driven wow (pitch/amplitude wobble above vinyl 0.2)
+  if (state.cash.vinyl > 0.2) {
+    const vinylDepth = (state.cash.vinyl - 0.2) * 0.005;
+    const vinylRate  = 0.5 + state.cash.vinyl * 0.5; // 0.5–1 Hz
+    for (let i = 0; i < totalSamples; i++) {
+      master[i] *= 1 + Math.sin(2 * Math.PI * vinylRate * (i / sr)) * vinylDepth;
+    }
+  }
   setProgress(65);
 
   // 5. Warmth
@@ -1588,9 +1596,29 @@ async function runCompile() {
     for (let i=0;i<master.length;i++) master[i]=w[i];
   }
 
-  // 6. Fingerprint EQ
+  // 6. Fingerprint EQ — chip-conditional genre color
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
-  const eq = applyEQChain(master, FINGERPRINT_EQ, sr);
+  const genreEQ = [...FINGERPRINT_EQ];
+  const _hasDARK  = state.activeStyles.has('dark');
+  const _hasSOUL  = state.activeStyles.has('soul');
+  const _hasDUSTY = state.activeStyles.has('dusty');
+  if (_hasDARK && !_hasSOUL) {
+    // Metal EQ: cut mud, boost chunk + presence, notch fizz
+    genreEQ.push(
+      {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
+      {type:'peaking', freq:900,  gain:2.5,  Q:0.8},
+      {type:'peaking', freq:3000, gain:2.0,  Q:1.2},
+      {type:'peaking', freq:8000, gain:-3.0, Q:0.9}
+    );
+  }
+  if (_hasDUSTY) {
+    // Memphis tape EQ: warm roll-off + mid pocket boost
+    genreEQ.push(
+      {type:'lowpass', freq:4000, gain:0,   Q:0.707},
+      {type:'peaking', freq:900,  gain:3.0, Q:0.8}
+    );
+  }
+  const eq = applyEQChain(master, genreEQ, sr);
   for (let i=0;i<master.length;i++) master[i]=eq[i];
   setProgress(72);
 
