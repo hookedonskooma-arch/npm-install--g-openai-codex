@@ -910,14 +910,19 @@ function clearMusicKey() {
 }
 function saveStabilityKey() {
   const key = document.getElementById('stability-key-input').value.trim();
+  const _sStatus = document.getElementById('stability-key-status');
   if (key) {
     localStorage.setItem('melegi_stability_key', key);
-    document.getElementById('stability-key-status').textContent = 'STABILITY KEY SAVED';
-    document.getElementById('stability-key-status').className = 'api-status ok';
+    _sStatus.textContent = 'STABILITY KEY SAVED';
+    _sStatus.className = 'api-status ok';
+    loadApiKey();
     setTimeout(closeSettings, 1000);
+  } else if (localStorage.getItem('melegi_stability_key')) {
+    _sStatus.textContent = 'KEY ACTIVE — RETYPE TO CHANGE';
+    _sStatus.className = 'api-status ok';
   } else {
-    document.getElementById('stability-key-status').textContent = 'ENTER A VALID KEY';
-    document.getElementById('stability-key-status').className = 'api-status err';
+    _sStatus.textContent = 'ENTER A VALID KEY';
+    _sStatus.className = 'api-status err';
   }
 }
 function clearStabilityKey() {
@@ -1574,10 +1579,10 @@ async function runCompile() {
   // 4. Lo-fi
   compileLog('APPLYING LO-FI PROCESSING...', 'ok');
   const vg = state.cash.vinyl*cashGain*0.05;
-  // Vinyl wobble runs at 0.3–0.7 Hz — kept out of phase with the wow LFO's fixed 0.7 Hz
+  // Vinyl wobble runs at 0.3–0.65 Hz — stays below wow LFO's 0.7 Hz to avoid phase-lock
   const _vinylWow   = state.cash.vinyl > 0.2;
   const _vinylDepth = _vinylWow ? (state.cash.vinyl - 0.2) * 0.10 : 0;
-  const _vinylRate  = 0.3 + state.cash.vinyl * 0.4;
+  const _vinylRate  = _vinylWow ? 0.3 + state.cash.vinyl * 0.35 : 0;
   for (let i = 0; i < totalSamples; i++) {
     const t = i/sr;
     if (state.lofi.crackle>0&&Math.random()<state.lofi.crackle*0.001) master[i]+=(Math.random()*2-1)*state.lofi.crackle*vg*8;
@@ -2134,9 +2139,9 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  // Guard: skip normalization below -50 dBLUFS — content that quiet is noise floor, not music.
-  // Avoids 40 dB over-boost of near-silent renders; -80 is the measureLufsK silence sentinel.
-  const gainLin = curLufs > -50 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  // Guard: skip normalization below -65 dBLUFS (near-silence / noise floor only).
+  // Protects against 40 dB over-boost while still normalizing sparse-but-musical content.
+  const gainLin = curLufs > -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
