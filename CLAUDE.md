@@ -85,6 +85,19 @@ Screenshots land in `/tmp/melegi-screenshots/`. Playwright + Chromium are pre-in
 
 ---
 
+## Session Workflow Rule
+
+**After every test or render that produces a WAV, send the file to the user immediately.**
+
+This applies to:
+- `build-arrangement.mjs` → `/tmp/the_floor_gave_up.wav`
+- `guitar-riff.mjs` → `/tmp/guitar_riff_8bar.wav`
+- Any new render script → whatever path it outputs
+
+Use `SendUserFile` right after the render completes. Do not wait until end of session.
+
+---
+
 ## Environment
 
 `.env` (gitignored) holds `DISCORD_TOKEN` and `OPENAI_API_KEY`. The PWA reads an Anthropic API key from a UI input field (not from `.env`).
