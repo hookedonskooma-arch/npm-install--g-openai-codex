@@ -1423,7 +1423,7 @@ function applyEQChain(s, bands, sr) {
 // how K-weighting lowers measured loudness for bass-heavy material vs raw RMS.
 function measureLufsK(samples, sr) {
   const s1 = applyBiquad(samples, makeBiquadCoeffs('highshelf', 1682, 4, 0.7071, sr));
-  const s2 = applyBiquad(s1,      makeBiquadCoeffs('highpass',  38,   0, 0.5,    sr));
+  const s2 = applyBiquad(s1,      makeBiquadCoeffs('highpass',  38,   0, 0.7071, sr));
   let ms = 0;
   for (let i = 0; i < s2.length; i++) ms += s2[i] * s2[i];
   ms /= s2.length;
@@ -2104,7 +2104,9 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  const gainLin=Math.pow(10,(cfg.lufs-curLufs)/20);
+  // Guard: skip normalization if signal is silence (-80 sentinel) or only needs
+  // a tiny boost (< +40 dB) to avoid catastrophic amplification of noise floor.
+  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
