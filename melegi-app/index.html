@@ -566,6 +566,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
         <div style="display:flex;gap:4px;align-items:center">
           <button id="ai-provider-eleven" onclick="setAiProvider('elevenlabs')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.6);color:var(--gold-light)">ELEVEN</button>
           <button id="ai-provider-stability" onclick="setAiProvider('stability')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.25);color:var(--text-dim)">STABILITY</button>
+          <button id="ai-provider-local" onclick="setAiProvider('local')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.25);color:var(--text-dim)" title="MusicGen local server — run musicgen_server.py first">LOCAL</button>
           <button id="ai-music-btn" onclick="toggleAiMusic()" class="btn" style="font-size:8px;letter-spacing:1px;padding:2px 8px;border-color:rgba(147,51,234,.25);color:var(--text-dim);opacity:0.5">OFF</button>
         </div>
       </div>
@@ -926,15 +927,21 @@ function clearStabilityKey() {
 function setAiProvider(provider) {
   state.aiMusicProvider = provider;
   const eleven = document.getElementById('ai-provider-eleven');
-  const stab = document.getElementById('ai-provider-stability');
+  const stab  = document.getElementById('ai-provider-stability');
+  const local = document.getElementById('ai-provider-local');
+  const active   = 'rgba(147,51,234,.6)'; const activeC  = 'var(--gold-light)';
+  const inactive = 'rgba(147,51,234,.25)'; const inactiveC = 'var(--text-dim)';
+  [eleven, stab, local].forEach(b => { b.style.borderColor = inactive; b.style.color = inactiveC; });
   if (provider === 'elevenlabs') {
-    eleven.style.borderColor = 'rgba(147,51,234,.6)'; eleven.style.color = 'var(--gold-light)';
-    stab.style.borderColor = 'rgba(147,51,234,.25)'; stab.style.color = 'var(--text-dim)';
+    eleven.style.borderColor = active; eleven.style.color = activeC;
     compileLog('AI MUSIC PROVIDER: ELEVENLABS', 'info');
-  } else {
-    stab.style.borderColor = 'rgba(147,51,234,.6)'; stab.style.color = 'var(--gold-light)';
-    eleven.style.borderColor = 'rgba(147,51,234,.25)'; eleven.style.color = 'var(--text-dim)';
+  } else if (provider === 'stability') {
+    stab.style.borderColor = active; stab.style.color = activeC;
     compileLog('AI MUSIC PROVIDER: STABILITY AI', 'info');
+  } else {
+    local.style.borderColor = active; local.style.color = activeC;
+    const port = localStorage.getItem('melegi_musicgen_port') || '7863';
+    compileLog('AI MUSIC PROVIDER: MUSICGEN LOCAL :' + port + ' (run musicgen_server.py first)', 'info');
   }
 }
 
@@ -949,8 +956,9 @@ function toggleAdvanced() {
 function toggleAiMusic() {
   const musicKey = localStorage.getItem('melegi_music_key');
   const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const isLocal = state.aiMusicProvider === 'local';
   const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
-  if (!state.aiMusicMode && !activeKey) {
+  if (!state.aiMusicMode && !isLocal && !activeKey) {
     const gear = document.getElementById('settings-btn');
     if (gear) {
       const orig = gear.style.color;
@@ -967,7 +975,7 @@ function toggleAiMusic() {
     btn.style.borderColor = 'rgba(147,51,234,.8)';
     btn.style.color = 'var(--gold-light)';
     btn.style.opacity = '1';
-    compileLog('AI MUSIC MODE ON' + (activeKey ? '' : ' — SET KEY IN ⚙'), 'info');
+    compileLog('AI MUSIC MODE ON' + (isLocal ? ' — LOCAL MUSICGEN' : (activeKey ? '' : ' — SET KEY IN ⚙')), 'info');
   } else {
     btn.textContent = 'OFF';
     btn.style.borderColor = 'rgba(147,51,234,.25)';
@@ -1175,6 +1183,20 @@ async function aiMusicGenerateStability(stabilityKey, prompt, durationSeconds) {
   return res.arrayBuffer();
 }
 
+async function aiMusicGenerateLocal(prompt, durationSeconds) {
+  const port = localStorage.getItem('melegi_musicgen_port') || '7863';
+  const res = await fetch('http://localhost:' + port + '/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt, duration: Math.min(Math.ceil(durationSeconds), 190)})
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('MusicGen :' + port + ' ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
 async function runAiMusicBuild(musicKey, stabilityKey) {
   const chips = [...state.activeStyles].join(', ');
   const styleText = [state.stylesText, chips].filter(Boolean).join(', ');
@@ -1188,7 +1210,9 @@ async function runAiMusicBuild(musicKey, stabilityKey) {
   const fullPrompt = promptParts.join('. ');
   const durationSeconds = Math.ceil(state.bars * 4 * 60 / state.bpm) + 2;
 
-  const provider = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
+  const provider = state.aiMusicProvider === 'stability' ? 'STABILITY AI'
+                 : state.aiMusicProvider === 'local' ? 'MUSICGEN LOCAL'
+                 : 'ELEVENLABS';
   compileLog('AI MUSIC — PROMPT: ' + fullPrompt.slice(0, 70) + (fullPrompt.length > 70 ? '…' : ''), 'info');
   compileLog('AI MUSIC — REQUESTING ' + durationSeconds + 's FROM ' + provider + '...', 'info');
   setProgress(15);
@@ -1197,6 +1221,8 @@ async function runAiMusicBuild(musicKey, stabilityKey) {
   try {
     if (state.aiMusicProvider === 'stability') {
       audioData = await aiMusicGenerateStability(stabilityKey, fullPrompt, durationSeconds);
+    } else if (state.aiMusicProvider === 'local') {
+      audioData = await aiMusicGenerateLocal(fullPrompt, durationSeconds);
     } else {
       audioData = await aiMusicGenerate(musicKey, fullPrompt, durationSeconds);
     }
@@ -1420,13 +1446,16 @@ async function runCompile() {
   // ── AI MUSIC path ──────────────────────────────────────────────────────────
   const musicKey = localStorage.getItem('melegi_music_key');
   const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const isLocal = state.aiMusicProvider === 'local';
   const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
-  const providerLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
-  if (state.aiMusicMode && !activeKey) {
+  const providerLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI'
+                      : state.aiMusicProvider === 'local' ? 'MUSICGEN LOCAL'
+                      : 'ELEVENLABS';
+  if (state.aiMusicMode && !isLocal && !activeKey) {
     compileLog('AI MUSIC MODE ON BUT NO ' + providerLabel + ' KEY — ADD IN ⚙ SETTINGS', 'warn');
     compileLog('FALLING BACK TO KS SYNTHESIS', 'info');
   }
-  if (state.aiMusicMode && activeKey) {
+  if (state.aiMusicMode && (isLocal || activeKey)) {
     const ok = await runAiMusicBuild(musicKey, stabilityKey);
     if (ok) {
       compileBtn.disabled = false;
