@@ -849,7 +849,9 @@ function loadApiKey() {
   const mKey = localStorage.getItem('melegi_music_key') || '';
   document.getElementById('music-key-input').value = mKey;
   const sKey = localStorage.getItem('melegi_stability_key') || '';
-  document.getElementById('stability-key-input').value = '';
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = sKey ? '••••••••••••••••' : 'sk-...';
 }
 
 function saveApiKey() {
@@ -1572,19 +1574,16 @@ async function runCompile() {
   // 4. Lo-fi
   compileLog('APPLYING LO-FI PROCESSING...', 'ok');
   const vg = state.cash.vinyl*cashGain*0.05;
+  // Vinyl wobble runs at 0.3–0.7 Hz — kept out of phase with the wow LFO's fixed 0.7 Hz
+  const _vinylWow   = state.cash.vinyl > 0.2;
+  const _vinylDepth = _vinylWow ? (state.cash.vinyl - 0.2) * 0.10 : 0;
+  const _vinylRate  = 0.3 + state.cash.vinyl * 0.4;
   for (let i = 0; i < totalSamples; i++) {
     const t = i/sr;
     if (state.lofi.crackle>0&&Math.random()<state.lofi.crackle*0.001) master[i]+=(Math.random()*2-1)*state.lofi.crackle*vg*8;
     if (state.lofi.hiss>0) master[i]+=(Math.random()*2-1)*state.lofi.hiss*0.03;
     if (state.lofi.wow>0) master[i]*=1+Math.sin(2*Math.PI*0.7*t)*state.lofi.wow*0.003;
-  }
-  // vinyl-driven wow (pitch/amplitude wobble above vinyl 0.2)
-  if (state.cash.vinyl > 0.2) {
-    const vinylDepth = (state.cash.vinyl - 0.2) * 0.005;
-    const vinylRate  = 0.5 + state.cash.vinyl * 0.5; // 0.5–1 Hz
-    for (let i = 0; i < totalSamples; i++) {
-      master[i] *= 1 + Math.sin(2 * Math.PI * vinylRate * (i / sr)) * vinylDepth;
-    }
+    if (_vinylWow) master[i]*=1+Math.sin(2*Math.PI*_vinylRate*t)*_vinylDepth;
   }
   setProgress(65);
 
@@ -1599,13 +1598,14 @@ async function runCompile() {
   // 6. Fingerprint EQ — chip-conditional genre color
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
   const genreEQ = [...FINGERPRINT_EQ];
-  const _hasDARK  = state.activeStyles.has('dark');
-  const _hasSOUL  = state.activeStyles.has('soul');
-  const _hasDUSTY = state.activeStyles.has('dusty');
-  const _hasBoomBap = state.activeStyles.has('boom-bap');
-  const _hasLoFi    = state.activeStyles.has('lo-fi');
-  // Metal EQ: only when DARK is the dominant genre (no SOUL, BOOM-BAP, or LO-FI)
-  if (_hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi) {
+  const _hasDARK        = state.activeStyles.has('dark');
+  const _hasSOUL        = state.activeStyles.has('soul');
+  const _hasDUSTY       = state.activeStyles.has('dusty');
+  const _hasBoomBap     = state.activeStyles.has('boom-bap');
+  const _hasLoFi        = state.activeStyles.has('lo-fi');
+  // DARK without soul/boom-bap/lo-fi → metal-dominant mix
+  const _isDarkDominant = _hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi;
+  if (_isDarkDominant) {
     genreEQ.push(
       {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
       {type:'peaking', freq:900,  gain:2.5,  Q:0.8},
@@ -1614,9 +1614,9 @@ async function runCompile() {
     );
   }
   if (_hasDUSTY) {
-    // Memphis tape EQ: warm roll-off + mid pocket boost (900 Hz skipped if DARK already pushed it)
-    genreEQ.push({type:'lowpass', freq:4000, gain:0, Q:0.707});
-    if (!(_hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi)) {
+    genreEQ.push({type:'lowpass', freq:4000, Q:0.707});
+    // 900 Hz skipped when metal DARK already pushed +2.5 dB there — stacking both would over-boost
+    if (!_isDarkDominant) {
       genreEQ.push({type:'peaking', freq:900, gain:3.0, Q:0.8});
     }
   }
@@ -2134,9 +2134,9 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  // Guard: skip normalization if signal is silence (-80 sentinel) or only needs
-  // a tiny boost (< +40 dB) to avoid catastrophic amplification of noise floor.
-  const gainLin = curLufs > -79 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  // Guard: skip normalization below -50 dBLUFS — content that quiet is noise floor, not music.
+  // Avoids 40 dB over-boost of near-silent renders; -80 is the measureLufsK silence sentinel.
+  const gainLin = curLufs > -50 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
