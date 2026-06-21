@@ -940,7 +940,7 @@ function setAiProvider(provider) {
     compileLog('AI MUSIC PROVIDER: STABILITY AI', 'info');
   } else {
     local.style.borderColor = active; local.style.color = activeC;
-    const port = localStorage.getItem('melegi_musicgen_port') || '7863';
+    const port = Math.max(1, Math.min(65535, parseInt(localStorage.getItem('melegi_musicgen_port'), 10) || 7863));
     compileLog('AI MUSIC PROVIDER: MUSICGEN LOCAL :' + port + ' (run musicgen_server.py first)', 'info');
   }
 }
@@ -966,7 +966,8 @@ function toggleAiMusic() {
       gear.style.fontSize = '18px';
       setTimeout(() => { gear.style.color = orig; gear.style.fontSize = ''; }, 1800);
     }
-    compileLog('AI MUSIC: ADD ELEVENLABS KEY IN ⚙ SETTINGS BEFORE BUILDING', 'warn');
+    const warnLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
+    compileLog('AI MUSIC: ADD ' + warnLabel + ' KEY IN ⚙ SETTINGS BEFORE BUILDING', 'warn');
   }
   state.aiMusicMode = !state.aiMusicMode;
   const btn = document.getElementById('ai-music-btn');
@@ -1184,7 +1185,7 @@ async function aiMusicGenerateStability(stabilityKey, prompt, durationSeconds) {
 }
 
 async function aiMusicGenerateLocal(prompt, durationSeconds) {
-  const port = localStorage.getItem('melegi_musicgen_port') || '7863';
+  const port = Math.max(1, Math.min(65535, parseInt(localStorage.getItem('melegi_musicgen_port'), 10) || 7863));
   const res = await fetch('http://localhost:' + port + '/generate', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
