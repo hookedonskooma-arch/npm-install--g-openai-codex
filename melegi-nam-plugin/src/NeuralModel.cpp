@@ -2,8 +2,14 @@
 #include <stdexcept>
 #include <cstring>
 
-NeuralModel::NeuralModel(const std::string& modelPath, Backend backend)
-    : path_(modelPath)
+static constexpr int NAM_DEFAULT_MAX_BUFFER_SIZE = 4096;
+
+// ── Construction ──────────────────────────────────────────────────────────────
+
+NeuralModel::NeuralModel(const std::string& modelPath, Backend backend,
+                         double expected_sample_rate)
+    : mExpectedSampleRate(expected_sample_rate)
+    , path_(modelPath)
     , backend_(backend)
     , env_(ORT_LOGGING_LEVEL_WARNING, "MelegiNAM")
     , memInfo_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault))
@@ -17,6 +23,24 @@ NeuralModel::NeuralModel(const std::string& modelPath, Backend backend)
         Ort::AllocatorWithDefaultOptions alloc;
         inputName_  = session_->GetInputNameAllocated(0, alloc).get();
         outputName_ = session_->GetOutputNameAllocated(0, alloc).get();
+
+        // If the ONNX model embeds an expected sample rate as metadata, read it.
+        // Convention: key "expected_sample_rate" in model's custom metadata.
+        try {
+            auto keys = session_->GetModelMetadata().GetCustomMetadataMapKeysAllocated(alloc);
+            for (const auto& k : keys) {
+                if (std::string(k.get()) == "expected_sample_rate") {
+                    auto val = session_->GetModelMetadata()
+                                        .LookupCustomMetadataMapAllocated(k.get(), alloc);
+                    mExpectedSampleRate = std::stod(val.get());
+                }
+                if (std::string(k.get()) == "loudness_db") {
+                    auto val = session_->GetModelMetadata()
+                                        .LookupCustomMetadataMapAllocated(k.get(), alloc);
+                    SetLoudness(std::stod(val.get()));
+                }
+            }
+        } catch (...) {} // metadata is optional
     }
 #ifdef MELEGI_USE_TORCHSCRIPT
     else {
@@ -26,63 +50,108 @@ NeuralModel::NeuralModel(const std::string& modelPath, Backend backend)
     }
 #else
     else {
-        throw std::runtime_error("TorchScript backend not compiled in (rebuild with -DUSE_TORCHSCRIPT=ON)");
+        throw std::runtime_error(
+            "TorchScript backend not compiled in — rebuild with -DUSE_TORCHSCRIPT=ON");
     }
 #endif
 }
 
 NeuralModel::~NeuralModel() = default;
 
-void NeuralModel::warmup(int blockSize)
-{
-    inputBuf_.resize(static_cast<size_t>(blockSize), 0.f);
-    outputBuf_.resize(static_cast<size_t>(blockSize), 0.f);
-    lastBlockSize_ = blockSize;
+// ── NAM DSP lifecycle ─────────────────────────────────────────────────────────
 
-    if (backend_ == Backend::ONNX) {
-        std::array<int64_t, 3> shape { 1, static_cast<int64_t>(blockSize), 1 };
-        const char* inNames[]  = { inputName_.c_str() };
-        const char* outNames[] = { outputName_.c_str() };
-        auto inTensor = Ort::Value::CreateTensor<float>(
-            memInfo_, inputBuf_.data(), inputBuf_.size(), shape.data(), 3);
-        session_->Run(Ort::RunOptions { nullptr }, inNames, &inTensor, 1, outNames, 1);
-    }
+void NeuralModel::SetMaxBufferSize(int maxBufferSize)
+{
+    mMaxBufferSize = maxBufferSize;
+    scratchIn_.resize(static_cast<size_t>(maxBufferSize), 0.f);
+    scratchOut_.resize(static_cast<size_t>(maxBufferSize), 0.f);
+}
+
+void NeuralModel::prewarm()
+{
+    // Run NAM_DEFAULT_MAX_BUFFER_SIZE zeros through the model to settle
+    // recurrent state (LSTM hidden vectors, WaveNet dilated conv buffers).
+    const int N = std::max(mMaxBufferSize, NAM_DEFAULT_MAX_BUFFER_SIZE);
+    std::vector<float> zeros(static_cast<size_t>(N), 0.f);
+    std::vector<float> sink (static_cast<size_t>(N), 0.f);
+    if (backend_ == Backend::ONNX)
+        runONNX(zeros.data(), sink.data(), N);
 #ifdef MELEGI_USE_TORCHSCRIPT
-    else if (tsLoaded_) {
-        auto dummy = torch::zeros({ 1, 1, static_cast<long>(blockSize) });
-        tsModule_.forward({ dummy });
-    }
+    else if (tsLoaded_)
+        runTorch(zeros.data(), sink.data(), N);
 #endif
 }
 
-void NeuralModel::process(const float* inBuf, float* outBuf, int numSamples)
+void NeuralModel::Reset(double sampleRate, int maxBufferSize)
 {
-    // Resize scratch only if block size changed (rare — most hosts are constant).
-    // Still heap-safe on audio thread: realloc only triggers on size change.
-    if (numSamples != lastBlockSize_) {
-        inputBuf_.resize(static_cast<size_t>(numSamples));
-        outputBuf_.resize(static_cast<size_t>(numSamples));
-        lastBlockSize_ = numSamples;
+    mExternalSampleRate = sampleRate;
+    SetMaxBufferSize(maxBufferSize);
+    if (mPrewarmOnReset.load(std::memory_order_acquire))
+        prewarm();
+}
+
+// ── Audio thread: process ─────────────────────────────────────────────────────
+
+void NeuralModel::process(NAM_SAMPLE** input, NAM_SAMPLE** output, int num_frames)
+{
+    // Resize scratch only if block grew beyond pre-allocated size (rare).
+    // This does allocate on the heap — guard in PluginProcessor by capping
+    // num_frames to maxBufferSize from Reset(), making this branch dead.
+    if (num_frames > mMaxBufferSize) {
+        scratchIn_.resize(static_cast<size_t>(num_frames));
+        scratchOut_.resize(static_cast<size_t>(num_frames));
+        mMaxBufferSize = num_frames;
     }
 
-    std::memcpy(inputBuf_.data(), inBuf, static_cast<size_t>(numSamples) * sizeof(float));
+    // Copy channel 0 of input (mono model) into flat scratch buffer
+    std::memcpy(scratchIn_.data(), input[0],
+                static_cast<size_t>(num_frames) * sizeof(float));
 
-    if (backend_ == Backend::ONNX) {
-        std::array<int64_t, 3> shape { 1, static_cast<int64_t>(numSamples), 1 };
-        const char* inNames[]  = { inputName_.c_str() };
-        const char* outNames[] = { outputName_.c_str() };
-        auto inTensor = Ort::Value::CreateTensor<float>(
-            memInfo_, inputBuf_.data(), inputBuf_.size(), shape.data(), 3);
-        auto outputs = session_->Run(
-            Ort::RunOptions { nullptr }, inNames, &inTensor, 1, outNames, 1);
-        const float* result = outputs[0].GetTensorData<float>();
-        std::memcpy(outBuf, result, static_cast<size_t>(numSamples) * sizeof(float));
-    }
+    if (backend_ == Backend::ONNX)
+        runONNX(scratchIn_.data(), scratchOut_.data(), num_frames);
 #ifdef MELEGI_USE_TORCHSCRIPT
-    else if (tsLoaded_) {
-        auto inTensor = torch::from_blob(inputBuf_.data(), { 1, 1, numSamples });
-        auto out = tsModule_.forward({ inTensor }).toTensor().contiguous();
-        std::memcpy(outBuf, out.data_ptr<float>(), static_cast<size_t>(numSamples) * sizeof(float));
-    }
+    else if (tsLoaded_)
+        runTorch(scratchIn_.data(), scratchOut_.data(), num_frames);
+#endif
+
+    // Write result into channel 0 of output
+    std::memcpy(output[0], scratchOut_.data(),
+                static_cast<size_t>(num_frames) * sizeof(float));
+}
+
+// ── Backend inference ─────────────────────────────────────────────────────────
+
+void NeuralModel::runONNX(const float* in, float* out, int numSamples)
+{
+    // Tensor shape: [1 (batch), numSamples (seq), 1 (channel)]
+    // Adjust if your model's contract differs — see SHARED.md "Model contract".
+    std::array<int64_t, 3> shape { 1, static_cast<int64_t>(numSamples), 1 };
+    const char* inNames[]  = { inputName_.c_str() };
+    const char* outNames[] = { outputName_.c_str() };
+
+    auto inTensor = Ort::Value::CreateTensor<float>(
+        memInfo_,
+        const_cast<float*>(in),   // CreateTensor takes non-const; we won't mutate
+        static_cast<size_t>(numSamples),
+        shape.data(), 3);
+
+    auto outputs = session_->Run(
+        Ort::RunOptions { nullptr }, inNames, &inTensor, 1, outNames, 1);
+    const float* result = outputs[0].GetTensorData<float>();
+    std::memcpy(out, result, static_cast<size_t>(numSamples) * sizeof(float));
+}
+
+void NeuralModel::runTorch(const float* in, float* out, int numSamples)
+{
+#ifdef MELEGI_USE_TORCHSCRIPT
+    if (!tsLoaded_) return;
+    // Wrap input without copy (channels-first: [1, 1, N])
+    auto inTensor = torch::from_blob(
+        const_cast<float*>(in), { 1, 1, numSamples });
+    auto result = tsModule_.forward({ inTensor }).toTensor().contiguous();
+    std::memcpy(out, result.data_ptr<float>(),
+                static_cast<size_t>(numSamples) * sizeof(float));
+#else
+    (void)in; (void)out; (void)numSamples;
 #endif
 }

@@ -4,7 +4,7 @@
 #include <atomic>
 #include <memory>
 #include <string>
-#include "NeuralModel.h"
+#include "NeuralModel.h"  // also defines NAM_SAMPLE
 #include <melegi/StyleDNA.hpp>
 #include <melegi/ShoegazeEngine.hpp>
 #include <melegi/AnalysisEngine.hpp>

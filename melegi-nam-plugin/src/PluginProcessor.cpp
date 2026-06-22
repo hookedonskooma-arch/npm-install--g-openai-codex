@@ -60,7 +60,19 @@ void MelegiNAMProcessor::ModelLoadThread::run()
     try {
         auto* newModel = new NeuralModel(
             owner.pendingModelPath.toStdString(), owner.pendingBackend);
-        newModel->warmup(owner.currentBlockSize);
+
+        // Validate expected sample rate if the model declares one
+        if (newModel->HasExpectedSR()) {
+            const double expected = newModel->GetExpectedSampleRate();
+            const double actual   = owner.currentSampleRate;
+            if (std::abs(expected - actual) > 1.0) {
+                juce::Logger::writeToLog(juce::String("MelegiNAM: model expects ")
+                    + expected + " Hz but host is at " + actual + " Hz");
+            }
+        }
+
+        // Reset() allocates buffers and calls prewarm() — matches nam::DSP lifecycle.
+        newModel->Reset(owner.currentSampleRate, owner.currentBlockSize);
 
         if (threadShouldExit()) { delete newModel; return; }
 
@@ -81,6 +93,16 @@ void MelegiNAMProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 
     scratchIn.resize(static_cast<size_t>(samplesPerBlock));
     scratchOut.resize(static_cast<size_t>(samplesPerBlock));
+
+    // If a model is already loaded (host changed SR/block size), reset it.
+    // Reset() re-allocates model buffers and calls prewarm() per NAM lifecycle.
+    // Disable prewarm here — we're on the audio thread and can't afford the
+    // cost; prewarm already ran during initial load on the background thread.
+    if (auto* m = activeModel.load(std::memory_order_acquire)) {
+        m->SetPrewarmOnReset(false);
+        m->Reset(sampleRate, samplesPerBlock);
+        m->SetPrewarmOnReset(true);
+    }
 
     shoegazeEngine.prepare(sampleRate, samplesPerBlock);
 
@@ -125,13 +147,29 @@ void MelegiNAMProcessor::processBlock(juce::AudioBuffer<float>& buffer,
             scratchIn[static_cast<size_t>(i)] += src[i] * chanMix * inGainLin;
     }
 
-    // Neural inference (pass-through if model not ready)
+    // Neural inference — NAM double-pointer channel layout: buf[channel][frame].
+    // We're mono (channel 0 only); cap to maxBufferSize so NeuralModel::process
+    // never needs to reallocate on the audio thread.
+    const int inferSamples = std::min(numSamples, currentBlockSize);
     auto* model = activeModel.load(std::memory_order_acquire);
     if (model && modelReady.load(std::memory_order_acquire)) {
-        model->process(scratchIn.data(), scratchOut.data(), numSamples);
+        NAM_SAMPLE* inPtr  = scratchIn.data();
+        NAM_SAMPLE* outPtr = scratchOut.data();
+        NAM_SAMPLE* inChs[]  = { inPtr  };
+        NAM_SAMPLE* outChs[] = { outPtr };
+        model->process(inChs, outChs, inferSamples);
+
+        // Apply loudness normalization if model declares it (HALoudness() → true)
+        if (model->HasLoudness()) {
+            // Target: −18 dBFS headroom in the chain. model->GetLoudness() is in dB.
+            const float normGain = juce::Decibels::decibelsToGain(
+                static_cast<float>(-18.0 - model->GetLoudness()));
+            for (int i = 0; i < inferSamples; ++i)
+                scratchOut[static_cast<size_t>(i)] *= normGain;
+        }
     } else {
         std::memcpy(scratchOut.data(), scratchIn.data(),
-                    static_cast<size_t>(numSamples) * sizeof(float));
+                    static_cast<size_t>(inferSamples) * sizeof(float));
     }
 
     // Apply Shoegaze CASH chain to the mono processed signal
