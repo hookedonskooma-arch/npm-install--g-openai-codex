@@ -1611,10 +1611,8 @@ async function runCompile() {
   const _hasDARK        = state.activeStyles.has('dark');
   const _hasSOUL        = state.activeStyles.has('soul');
   const _hasDUSTY       = state.activeStyles.has('dusty');
-  const _hasBoomBap     = state.activeStyles.has('boom-bap');
-  const _hasLoFi        = state.activeStyles.has('lo-fi');
-  // DARK without soul/boom-bap/lo-fi → metal-dominant mix
-  const _isDarkDominant = _hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi;
+  // DARK without soul → metal-dominant mix; BOOM-BAP/LO-FI do not suppress metal EQ
+  const _isDarkDominant = _hasDARK && !_hasSOUL;
   if (_isDarkDominant) {
     genreEQ.push(
       {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
@@ -2144,9 +2142,10 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  // Guard: skip normalization below -65 dBLUFS (near-silence / noise floor only).
-  // Protects against 40 dB over-boost while still normalizing sparse-but-musical content.
-  const gainLin = curLufs >= -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  // Guard: skip normalization below -70 dBLUFS (silence sentinel is -80).
+  // Cap at 20× (26 dB) — compile path already hard-clips to -0.1 dBFS, so export
+  // should need at most a few dB of LUFS adjustment for normal content.
+  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 20) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
