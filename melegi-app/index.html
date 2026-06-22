@@ -841,24 +841,25 @@ const state = {
 };
 
 // ── API KEY ────────────────────────────────────────────────────────────────────
+const MASKED_KEY = '••••••••••••••••';
 function loadApiKey() {
   const key = localStorage.getItem('melegi_api_key') || '';
   document.getElementById('api-key-input').value = key;
-  document.getElementById('api-key-inline').value = key ? '••••••••••••••••' : '';
+  document.getElementById('api-key-inline').value = key ? MASKED_KEY : '';
   updateApiIndicator(!!key);
   const mKey = localStorage.getItem('melegi_music_key') || '';
   document.getElementById('music-key-input').value = mKey;
   const sKey = localStorage.getItem('melegi_stability_key') || '';
   const _sInput = document.getElementById('stability-key-input');
   _sInput.value = '';
-  _sInput.placeholder = sKey ? '••••••••••••••••' : 'sk-...';
+  _sInput.placeholder = sKey ? MASKED_KEY : 'sk-...';
 }
 
 function saveApiKey() {
   const key = document.getElementById('api-key-input').value.trim();
   if (key) {
     localStorage.setItem('melegi_api_key', key);
-    document.getElementById('api-key-inline').value = '••••••••••••••••';
+    document.getElementById('api-key-inline').value = MASKED_KEY;
     document.getElementById('api-status').textContent = 'KEY SAVED — AI BUILD ENABLED';
     document.getElementById('api-status').className = 'api-status ok';
     updateApiIndicator(true);
@@ -909,14 +910,15 @@ function clearMusicKey() {
   document.getElementById('music-key-status').className = 'api-status';
 }
 function saveStabilityKey() {
-  const key = document.getElementById('stability-key-input').value.trim();
+  const _sInput = document.getElementById('stability-key-input');
+  const key = _sInput.value.trim();
   const _sStatus = document.getElementById('stability-key-status');
   if (key) {
     localStorage.setItem('melegi_stability_key', key);
     _sStatus.textContent = 'STABILITY KEY SAVED';
     _sStatus.className = 'api-status ok';
-    document.getElementById('stability-key-input').value = '';
-    document.getElementById('stability-key-input').placeholder = '••••••••••••••••';
+    _sInput.value = '';
+    _sInput.placeholder = MASKED_KEY;
     setTimeout(closeSettings, 1000);
   } else if (localStorage.getItem('melegi_stability_key')) {
     _sStatus.textContent = 'KEY ACTIVE — RETYPE TO CHANGE';
