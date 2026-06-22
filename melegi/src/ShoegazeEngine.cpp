@@ -109,8 +109,8 @@ void ShoegazeEngine::applyFDNReverb(AudioBuffer& buf,
             for (auto o : outputs) wet += o;
             wet /= FDN_SIZE;
 
-            // Dry/wet blend
-            buf.at(c, f) = in * (1.f - wetLevel) + wet * wetLevel;
+            // Pure wet signal — outer dry/wet blend handled by process()
+            buf.at(c, f) = wet * wetLevel;
         }
     }
 }
