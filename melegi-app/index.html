@@ -841,22 +841,25 @@ const state = {
 };
 
 // ── API KEY ────────────────────────────────────────────────────────────────────
+const MASKED_KEY = '••••••••••••••••';
 function loadApiKey() {
   const key = localStorage.getItem('melegi_api_key') || '';
   document.getElementById('api-key-input').value = key;
-  document.getElementById('api-key-inline').value = key ? '••••••••••••••••' : '';
+  document.getElementById('api-key-inline').value = key ? MASKED_KEY : '';
   updateApiIndicator(!!key);
   const mKey = localStorage.getItem('melegi_music_key') || '';
   document.getElementById('music-key-input').value = mKey;
   const sKey = localStorage.getItem('melegi_stability_key') || '';
-  document.getElementById('stability-key-input').value = sKey ? '••••••••••••••••' : '';
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = sKey ? MASKED_KEY : 'sk-...';
 }
 
 function saveApiKey() {
   const key = document.getElementById('api-key-input').value.trim();
   if (key) {
     localStorage.setItem('melegi_api_key', key);
-    document.getElementById('api-key-inline').value = '••••••••••••••••';
+    document.getElementById('api-key-inline').value = MASKED_KEY;
     document.getElementById('api-status').textContent = 'KEY SAVED — AI BUILD ENABLED';
     document.getElementById('api-status').className = 'api-status ok';
     updateApiIndicator(true);
@@ -907,20 +910,29 @@ function clearMusicKey() {
   document.getElementById('music-key-status').className = 'api-status';
 }
 function saveStabilityKey() {
-  const key = document.getElementById('stability-key-input').value.trim();
+  const _sInput = document.getElementById('stability-key-input');
+  const key = _sInput.value.trim();
+  const _sStatus = document.getElementById('stability-key-status');
   if (key) {
     localStorage.setItem('melegi_stability_key', key);
-    document.getElementById('stability-key-status').textContent = 'STABILITY KEY SAVED';
-    document.getElementById('stability-key-status').className = 'api-status ok';
+    _sStatus.textContent = 'STABILITY KEY SAVED';
+    _sStatus.className = 'api-status ok';
+    _sInput.value = '';
+    _sInput.placeholder = MASKED_KEY;
     setTimeout(closeSettings, 1000);
+  } else if (localStorage.getItem('melegi_stability_key')) {
+    _sStatus.textContent = 'KEY ACTIVE — RETYPE TO CHANGE';
+    _sStatus.className = 'api-status ok';
   } else {
-    document.getElementById('stability-key-status').textContent = 'ENTER A VALID KEY';
-    document.getElementById('stability-key-status').className = 'api-status err';
+    _sStatus.textContent = 'ENTER A VALID KEY';
+    _sStatus.className = 'api-status err';
   }
 }
 function clearStabilityKey() {
   localStorage.removeItem('melegi_stability_key');
-  document.getElementById('stability-key-input').value = '';
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = 'sk-...';
   document.getElementById('stability-key-status').textContent = 'STABILITY KEY CLEARED';
   document.getElementById('stability-key-status').className = 'api-status';
 }
@@ -1572,11 +1584,16 @@ async function runCompile() {
   // 4. Lo-fi
   compileLog('APPLYING LO-FI PROCESSING...', 'ok');
   const vg = state.cash.vinyl*cashGain*0.05;
+  // Vinyl wobble runs at 0.3–0.65 Hz — stays below wow LFO's 0.7 Hz to avoid phase-lock
+  const _vinylWow   = state.cash.vinyl > 0.2;
+  const _vinylDepth = _vinylWow ? (state.cash.vinyl - 0.2) * 0.10 : 0;
+  const _vinylRate  = _vinylWow ? 0.3 + state.cash.vinyl * 0.35 : 0;
   for (let i = 0; i < totalSamples; i++) {
     const t = i/sr;
     if (state.lofi.crackle>0&&Math.random()<state.lofi.crackle*0.001) master[i]+=(Math.random()*2-1)*state.lofi.crackle*vg*8;
     if (state.lofi.hiss>0) master[i]+=(Math.random()*2-1)*state.lofi.hiss*0.03;
     if (state.lofi.wow>0) master[i]*=1+Math.sin(2*Math.PI*0.7*t)*state.lofi.wow*0.003;
+    if (_vinylWow) master[i]*=1+Math.sin(2*Math.PI*_vinylRate*t)*_vinylDepth;
   }
   setProgress(65);
 
@@ -1588,9 +1605,32 @@ async function runCompile() {
     for (let i=0;i<master.length;i++) master[i]=w[i];
   }
 
-  // 6. Fingerprint EQ
+  // 6. Fingerprint EQ — chip-conditional genre color
   compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
-  const eq = applyEQChain(master, FINGERPRINT_EQ, sr);
+  const genreEQ = [...FINGERPRINT_EQ];
+  const _hasDARK        = state.activeStyles.has('dark');
+  const _hasSOUL        = state.activeStyles.has('soul');
+  const _hasDUSTY       = state.activeStyles.has('dusty');
+  const _hasBoomBap     = state.activeStyles.has('boom-bap');
+  const _hasLoFi        = state.activeStyles.has('lo-fi');
+  // DARK without soul/boom-bap/lo-fi → metal-dominant mix
+  const _isDarkDominant = _hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi;
+  if (_isDarkDominant) {
+    genreEQ.push(
+      {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
+      {type:'peaking', freq:900,  gain:2.5,  Q:0.8},
+      {type:'peaking', freq:3000, gain:2.0,  Q:1.2},
+      {type:'peaking', freq:8000, gain:-3.0, Q:0.9}
+    );
+  }
+  if (_hasDUSTY) {
+    genreEQ.push({type:'lowpass', freq:4000, Q:0.707});
+    // 900 Hz skipped when metal DARK already pushed +2.5 dB there — stacking both would over-boost
+    if (!_isDarkDominant) {
+      genreEQ.push({type:'peaking', freq:900, gain:3.0, Q:0.8});
+    }
+  }
+  const eq = applyEQChain(master, genreEQ, sr);
   for (let i=0;i<master.length;i++) master[i]=eq[i];
   setProgress(72);
 
@@ -2104,9 +2144,9 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  // Guard: skip normalization if signal is silence (-80 sentinel) or only needs
-  // a tiny boost (< +40 dB) to avoid catastrophic amplification of noise floor.
-  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  // Guard: skip normalization below -65 dBLUFS (near-silence / noise floor only).
+  // Protects against 40 dB over-boost while still normalizing sparse-but-musical content.
+  const gainLin = curLufs >= -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
