@@ -915,7 +915,8 @@ function saveStabilityKey() {
     localStorage.setItem('melegi_stability_key', key);
     _sStatus.textContent = 'STABILITY KEY SAVED';
     _sStatus.className = 'api-status ok';
-    loadApiKey();
+    document.getElementById('stability-key-input').value = '';
+    document.getElementById('stability-key-input').placeholder = '••••••••••••••••';
     setTimeout(closeSettings, 1000);
   } else if (localStorage.getItem('melegi_stability_key')) {
     _sStatus.textContent = 'KEY ACTIVE — RETYPE TO CHANGE';
@@ -927,7 +928,9 @@ function saveStabilityKey() {
 }
 function clearStabilityKey() {
   localStorage.removeItem('melegi_stability_key');
-  document.getElementById('stability-key-input').value = '';
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = 'sk-...';
   document.getElementById('stability-key-status').textContent = 'STABILITY KEY CLEARED';
   document.getElementById('stability-key-status').className = 'api-status';
 }
@@ -2141,7 +2144,7 @@ async function renderAndDownload() {
   const curLufs = measureLufsK(resampled, cfg.sr);
   // Guard: skip normalization below -65 dBLUFS (near-silence / noise floor only).
   // Protects against 40 dB over-boost while still normalizing sparse-but-musical content.
-  const gainLin = curLufs > -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  const gainLin = curLufs >= -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
