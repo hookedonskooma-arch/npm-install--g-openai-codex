@@ -209,52 +209,107 @@ float AnalysisEngine::estimateBPM(const std::vector<float>& mono, SampleRate sr)
 float AnalysisEngine::spectralCentroid(const std::vector<float>& mono, SampleRate sr) const {
     int N = static_cast<int>(mono.size());
     int fftN = FFT_SIZE;
-    // Use first full frame centroid (representative)
     if (N < fftN) return 0.f;
 
     auto win = hannWindow(fftN);
-    std::vector<std::complex<float>> cx(fftN, 0.f);
-    for (int i = 0; i < fftN; ++i) cx[i] = mono[i] * win[i];
-    fft(cx);
-
     float binWidth = static_cast<float>(sr) / fftN;
-    float weightedSum = 0.f, totalMag = 0.f;
-    for (int i = 1; i < fftN / 2; ++i) {
-        float mag = std::abs(cx[i]);
-        weightedSum += i * binWidth * mag;
-        totalMag    += mag;
+
+    // Sample up to 8 frames spread across the buffer; skip silent ones
+    const int MAX_FRAMES = 8;
+    int step = std::max(fftN, N / MAX_FRAMES);
+    float centroidSum = 0.f;
+    int validFrames = 0;
+
+    for (int offset = 0; offset + fftN <= N; offset += step) {
+        std::vector<std::complex<float>> cx(fftN, 0.f);
+        for (int i = 0; i < fftN; ++i) cx[i] = mono[offset + i] * win[i];
+        fft(cx);
+
+        float weightedSum = 0.f, totalMag = 0.f;
+        for (int i = 1; i < fftN / 2; ++i) {
+            float mag = std::abs(cx[i]);
+            weightedSum += i * binWidth * mag;
+            totalMag    += mag;
+        }
+        if (totalMag > 1e-6f) {
+            centroidSum += weightedSum / totalMag;
+            ++validFrames;
+        }
     }
-    return totalMag > 0.f ? weightedSum / totalMag : 0.f;
+    return validFrames > 0 ? centroidSum / validFrames : 0.f;
 }
 
 // ── Band energy ────────────────────────────────────────────────────────────
 BandEnergy AnalysisEngine::measureBandEnergy(const std::vector<float>& mono,
                                               SampleRate sr) const {
-    int N = std::min(static_cast<int>(mono.size()), FFT_SIZE);
-    auto win = hannWindow(N);
-    std::vector<std::complex<float>> cx(FFT_SIZE, 0.f);
-    for (int i = 0; i < N; ++i) cx[i] = mono[i] * win[i];
-    fft(cx);
+    int N = static_cast<int>(mono.size());
+    if (N < FFT_SIZE) {
+        // Short buffer: analyse what we have
+        N = std::min(N, FFT_SIZE);
+        auto win = hannWindow(N);
+        std::vector<std::complex<float>> cx(FFT_SIZE, 0.f);
+        for (int i = 0; i < N; ++i) cx[i] = mono[i] * win[i];
+        fft(cx);
+        float binWidth = static_cast<float>(sr) / FFT_SIZE;
+        BandEnergy be;
+        float total = 0.f;
+        for (int i = 1; i < FFT_SIZE / 2; ++i) {
+            float mag2 = std::norm(cx[i]);
+            float freq = i * binWidth;
+            if      (freq <   80.f) be.sub    += mag2;
+            else if (freq <  300.f) be.lowMid += mag2;
+            else if (freq < 2000.f) be.mid    += mag2;
+            else if (freq < 6000.f) be.hiMid  += mag2;
+            else                    be.air     += mag2;
+            total += mag2;
+        }
+        if (total > 0.f) {
+            be.sub /= total; be.lowMid /= total; be.mid /= total;
+            be.hiMid /= total; be.air /= total;
+        }
+        return be;
+    }
 
+    auto win = hannWindow(FFT_SIZE);
     float binWidth = static_cast<float>(sr) / FFT_SIZE;
-    BandEnergy be;
-    float total = 0.f;
-    for (int i = 1; i < FFT_SIZE / 2; ++i) {
-        float mag = std::abs(cx[i]);
-        float mag2 = mag * mag;
-        float freq = i * binWidth;
-        if      (freq <   80.f) { be.sub    += mag2; }
-        else if (freq <  300.f) { be.lowMid += mag2; }
-        else if (freq < 2000.f) { be.mid    += mag2; }
-        else if (freq < 6000.f) { be.hiMid  += mag2; }
-        else                    { be.air    += mag2; }
-        total += mag2;
+
+    const int MAX_FRAMES = 8;
+    int step = std::max(FFT_SIZE, N / MAX_FRAMES);
+    BandEnergy accum;
+    int validFrames = 0;
+
+    for (int offset = 0; offset + FFT_SIZE <= N; offset += step) {
+        std::vector<std::complex<float>> cx(FFT_SIZE, 0.f);
+        for (int i = 0; i < FFT_SIZE; ++i) cx[i] = mono[offset + i] * win[i];
+        fft(cx);
+
+        float total = 0.f;
+        BandEnergy be;
+        for (int i = 1; i < FFT_SIZE / 2; ++i) {
+            float mag2 = std::norm(cx[i]);
+            float freq = i * binWidth;
+            if      (freq <   80.f) be.sub    += mag2;
+            else if (freq <  300.f) be.lowMid += mag2;
+            else if (freq < 2000.f) be.mid    += mag2;
+            else if (freq < 6000.f) be.hiMid  += mag2;
+            else                    be.air     += mag2;
+            total += mag2;
+        }
+        if (total > 1e-6f) {
+            be.sub /= total; be.lowMid /= total; be.mid /= total;
+            be.hiMid /= total; be.air /= total;
+            accum.sub    += be.sub;    accum.lowMid += be.lowMid;
+            accum.mid    += be.mid;    accum.hiMid  += be.hiMid;
+            accum.air    += be.air;
+            ++validFrames;
+        }
     }
-    if (total > 0.f) {
-        be.sub /= total; be.lowMid /= total; be.mid /= total;
-        be.hiMid /= total; be.air /= total;
+    if (validFrames > 0) {
+        accum.sub /= validFrames; accum.lowMid /= validFrames;
+        accum.mid /= validFrames; accum.hiMid  /= validFrames;
+        accum.air /= validFrames;
     }
-    return be;
+    return accum;
 }
 
 // ── RMS, Peak, LUFS ────────────────────────────────────────────────────────
