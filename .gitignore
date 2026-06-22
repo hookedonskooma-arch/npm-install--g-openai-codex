@@ -19,3 +19,7 @@ node_modules/
 
 # Runtime data
 web/data/
+
+# MELEGI C++ pipeline exports (WAV + JSON sidecars land in repo root when run from there)
+MELEGI_*.wav
+MELEGI_*.wav.json
