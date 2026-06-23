@@ -292,7 +292,20 @@ input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 
 #genre-params-display{font-size:9px;color:rgba(147,51,234,.7);letter-spacing:.5px}
 #genre-status{font-size:10px;color:var(--text-dim);min-height:16px}
 #reproduce-btn{display:none;margin-top:4px}
-.analyze-col.genre-col{min-width:200px}
+.analyze-col.genre-col{min-width:200px;overflow-y:auto}
+/* ── TASTE ENGINE ──────────────────────────────────────────────── */
+#taste-section{border-top:1px solid var(--border);padding-top:8px;margin-top:8px;flex-shrink:0}
+#taste-songs-list{max-height:62px;overflow-y:auto;margin-top:4px}
+.taste-song-item{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--text-dim);padding:2px 0;line-height:1.4}
+.taste-song-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.taste-song-remove{cursor:pointer;color:var(--red);opacity:.6;flex-shrink:0;font-size:11px}
+.taste-song-remove:hover{opacity:1}
+#taste-radar-wrap{display:none;margin:6px auto;text-align:center}
+#taste-radar{display:block;margin:0 auto}
+#taste-score-row{display:none;text-align:center;margin-top:4px}
+#taste-score{font-size:28px;font-weight:700;color:var(--gold-light);letter-spacing:1px;text-shadow:0 0 16px rgba(147,51,234,.5)}
+#taste-score-label{font-size:9px;color:var(--text-dim);letter-spacing:2px;margin-top:1px}
+#taste-status{font-size:10px;color:var(--text-dim);min-height:14px;margin-top:4px;line-height:1.5}
 
 /* ── EXPORT PAGE ──────────────────────────────────────────────────── */
 #page-export{flex-direction:row}
@@ -805,6 +818,27 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
         <div id="genre-params-display"></div>
         <button class="btn" id="reproduce-btn" onclick="applyReproducedGenre()">REPRODUCE THIS →</button>
       </div>
+
+      <!-- TASTE ENGINE -->
+      <div id="taste-section">
+        <div class="section-label">TASTE ENGINE</div>
+        <div id="taste-status">No songs added yet.</div>
+        <div style="display:flex;gap:5px;margin-top:4px">
+          <label class="btn" style="cursor:pointer;flex:1;text-align:center;padding:5px 8px;font-size:9px;letter-spacing:1px">
+            ⊕ ADD SONG
+            <input type="file" accept="audio/*" multiple style="display:none" onchange="addLikedSongs(this)">
+          </label>
+          <button class="btn" onclick="clearLikedSongs()" style="font-size:9px;letter-spacing:1px;opacity:.6">CLEAR</button>
+        </div>
+        <div id="taste-songs-list"></div>
+        <div id="taste-radar-wrap">
+          <canvas id="taste-radar" width="150" height="150"></canvas>
+        </div>
+        <div id="taste-score-row">
+          <div id="taste-score">—</div>
+          <div id="taste-score-label">TASTE MATCH</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -929,7 +963,8 @@ const state = {
   vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[],
   aiMusicMode:false,
   aiMusicProvider:'elevenlabs',
-  irCache:null,irSr:null
+  irCache:null,irSr:null,
+  likedSongs:[],tasteProfile:null,tasteScore:null
 };
 
 // ── API KEY ────────────────────────────────────────────────────────────────────
@@ -1680,38 +1715,55 @@ async function runCompile() {
   compileLog('INITIALIZING COMPILE ENGINE...', 'info');
   compileLog('BPM: '+bpm+' | BARS: '+bars+' | SR: '+sr+(apiKey?' | AI MODE':''), '');
 
-  // 1. KS soul layer
-  compileLog('GENERATING KARPLUS-STRONG LAYER...', 'ok');
+  // 1. KS soul layer — strum all chord notes simultaneously (harmonic unison)
+  compileLog('GENERATING KARPLUS-STRONG CHORD LAYER...', 'ok');
   const ksText = document.getElementById('ks-notation').value;
   const freqs = ksText.trim().split(/[\s\n]+/).map(noteToFreq).filter(Boolean);
   if (!freqs.length) freqs.push(146.83,220,293.66);
   setProgress(10);
 
-  const noteDur = spb*0.5, decay = state.decay;
+  const noteDur = spb*0.9, decay = state.decay;
+  // Strum all chord voices together — 6ms stagger between strings for natural feel
+  const strumMs = 0.006;
+  const sg = state.cash.soul * cashGain * 0.38 / Math.sqrt(Math.max(freqs.length, 1));
   for (let b = 0; b < totalBeats; b++) {
-    const freq = freqs[b%freqs.length], start = Math.floor(b*spb*sr);
-    const ks = karplusStrong(freq, noteDur, sr, decay);
-    const sg = state.cash.soul*cashGain*0.4;
-    for (let i = 0; i < ks.length && start+i < totalSamples; i++) master[start+i] += ks[i]*sg;
-    if (b%2===1) {
-      const off = Math.floor(state.swing*spb*0.333*sr);
-      const ss = Math.min(start+off, totalSamples-1);
-      const ks2 = karplusStrong(freq*0.5, noteDur*0.7, sr, decay);
-      for (let i = 0; i < ks2.length && ss+i < totalSamples; i++) master[ss+i] += ks2[i]*sg*0.5;
+    const beatStart = Math.floor(b * spb * sr);
+    for (let n = 0; n < freqs.length; n++) {
+      const offset = Math.floor(n * strumMs * sr);
+      const start = Math.min(beatStart + offset, totalSamples - 1);
+      const pickPos = 0.25 + (n / freqs.length) * 0.5;
+      const brt     = 0.3  + (n / freqs.length) * 0.35;
+      const vel     = 0.85 + (n % 3 === 0 ? 0.15 : -0.05);
+      const ks = karplusStrong(freqs[n], noteDur, sr, decay, pickPos, brt);
+      for (let i = 0; i < ks.length && start + i < totalSamples; i++) {
+        master[start + i] += ks[i] * sg * vel;
+      }
+    }
+    // Swing ghost: root octave-down on off-beats
+    if (b % 2 === 1) {
+      const off = Math.floor(state.swing * spb * 0.333 * sr);
+      const ss = Math.min(beatStart + off, totalSamples - 1);
+      const ks2 = karplusStrong(freqs[0] * 0.5, noteDur * 0.65, sr, decay, 0.5, 0.25);
+      for (let i = 0; i < ks2.length && ss + i < totalSamples; i++) {
+        master[ss + i] += ks2[i] * sg * 0.55;
+      }
     }
   }
   setProgress(25);
 
-  // 2. 808 sub
+  // 2. 808 sub — tuned to root note for harmonic lock
   compileLog('GENERATING 808 SUB LAYER...', 'ok');
   const kickPat = [1,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0];
   const steps = 4;
+  // Root = lowest note in notation; transpose to bass register if needed
+  const rootFreq = freqs[0] || 82;
+  const bassStart = rootFreq > 130 ? rootFreq / 2 : rootFreq; // push to E2-A2 range
+  const bassEnd   = Math.max(22, bassStart * 0.44);
   for (let s = 0; s < totalBeats*steps; s++) {
     if (kickPat[s%kickPat.length]) {
       const start = Math.floor(s*(spb/steps)*sr);
-      const kf = freqs[Math.floor(s/steps)%freqs.length]||55;
-      const kick = synth808Kick(sr, 0.8, Math.min(kf,80), Math.min(kf*0.5,30));
-      const sg = state.cash.sub*cashGain*0.7;
+      const kick = synth808Kick(sr, 0.85, Math.min(bassStart, 100), bassEnd);
+      const sg = state.cash.sub*cashGain*0.72;
       for (let i = 0; i < kick.length && start+i < totalSamples; i++) master[start+i] += kick[i]*sg;
     }
   }
@@ -1844,6 +1896,13 @@ async function runCompile() {
   // Auto-play like Suno — play immediately after generation
   if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
   getMasteringIntel(master, sr);
+  // Score against taste profile if one exists
+  if (state.tasteProfile) {
+    const buildEmb = extractTasteEmbedding(state.masterBuffer);
+    state.tasteScore = scoreSimilarity(buildEmb, state.tasteProfile);
+    updateTasteUI();
+    compileLog('TASTE MATCH: ' + Math.round(state.tasteScore * 100) + '%', state.tasteScore > 0.65 ? 'ok' : 'warn');
+  }
 }
 
 function setProgress(p) { document.getElementById('progress-bar').style.width = p+'%'; }
@@ -1864,15 +1923,19 @@ function updateCompileMeters(samples, sr) {
 
 // ── SPECTRAL ANALYSIS ─────────────────────────────────────────────────────────
 function computeCentroidApprox(samples, sr, N) {
-  const half=Math.floor(N/2), step=Math.max(1,Math.floor(N/512));
-  let ws=0, ms=0;
-  for (let k=1;k<half;k++) {
-    const freq=k*sr/N; if(freq>20000) break;
-    let r=0;
-    for (let n=0;n<N;n+=step) r+=samples[n]*Math.cos(2*Math.PI*k*n/N);
-    const mag=Math.abs(r); ws+=freq*mag; ms+=mag;
+  // 256 evenly-spaced frequency targets — avoids step-aliasing from the old approach
+  const analN = Math.min(N, samples.length);
+  const numBins = 256;
+  let ws = 0, ms = 0;
+  for (let b = 0; b < numBins; b++) {
+    const freq = 20 + (20000 - 20) * b / (numBins - 1);
+    const kFrac = freq / sr;
+    let r = 0;
+    for (let n = 0; n < analN; n++) r += samples[n] * Math.cos(2 * Math.PI * kFrac * n);
+    const mag = Math.abs(r);
+    ws += freq * mag; ms += mag;
   }
-  return ms>0?ws/ms:757;
+  return ms > 0 ? ws / ms : 757;
 }
 
 function computeBandEnergies(samples, sr, N=2048) {
@@ -2033,6 +2096,343 @@ function extractAudioFeatures(samples, sr) {
     crest:      computeCrestFactor(samples).toFixed(1),
     zcr:        (computeZCR(samples) * 1000).toFixed(2), // per 1000 samples
   };
+}
+
+// ── TASTE EMBEDDING ENGINE ───────────────────────────────────────────────────
+// FFT = Sensor · Embedding = Memory · Generation = Navigation
+
+function computeSonicFFT(samples, sr) {
+  const N = Math.min(2048, samples.length);
+  const bandsHz = [[20,60],[60,200],[200,600],[600,2000],[2000,6000],[6000,12000],[12000,20000]];
+  const keys    = ['sub_bass','bass','low_mid','mid','high_mid','treble','air'];
+  const e = new Array(7).fill(0);
+  const numBins = 512;
+  for (let b = 0; b < numBins; b++) {
+    const freq = 20 + (20000 - 20) * b / (numBins - 1);
+    const kFrac = freq / sr;
+    let r = 0;
+    for (let n = 0; n < N; n++) r += samples[n] * Math.cos(2 * Math.PI * kFrac * n);
+    const mag = r * r;
+    for (let i = 0; i < bandsHz.length; i++) {
+      if (freq >= bandsHz[i][0] && freq < bandsHz[i][1]) { e[i] += mag; break; }
+    }
+  }
+  const tot = e.reduce((a, v) => a + v, 0) || 1;
+  const out = {};
+  keys.forEach((k, i) => { out[k] = e[i] / tot; });
+  return out;
+}
+
+function computeTemporalFFT(samples, sr) {
+  const hopSamples = Math.round(sr * 0.1);
+  const numFrames = Math.max(1, Math.floor(samples.length / hopSamples));
+  const fE = new Float32Array(numFrames);
+  for (let f = 0; f < numFrames; f++) {
+    let e = 0;
+    const s = f * hopSamples, end = Math.min(s + hopSamples, samples.length);
+    for (let i = s; i < end; i++) e += samples[i] * samples[i];
+    fE[f] = Math.sqrt(e / (end - s));
+  }
+  let mean = 0;
+  for (let f = 0; f < numFrames; f++) mean += fE[f];
+  mean /= numFrames;
+  let variance = 0;
+  for (let f = 0; f < numFrames; f++) variance += (fE[f] - mean) ** 2;
+  const dynamic_volatility = Math.min(1, Math.sqrt(variance / numFrames) / (mean + 1e-9));
+
+  const minLag = Math.max(1, Math.round(sr * 0.3 / hopSamples));
+  const maxLag = Math.min(Math.round(sr * 1.0 / hopSamples), Math.floor(numFrames / 2));
+  let maxCorr = 0;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let c = 0;
+    for (let f = 0; f < numFrames - lag; f++) c += fE[f] * fE[f + lag];
+    if (c > maxCorr) maxCorr = c;
+  }
+  const selfCorr = fE.reduce((a, v) => a + v * v, 0);
+  const tempo_stability = Math.min(1, maxCorr / (selfCorr + 1e-9));
+
+  let sx = 0, sy = 0, sxy = 0, sx2 = 0;
+  for (let f = 0; f < numFrames; f++) { sx += f; sy += fE[f]; sxy += f * fE[f]; sx2 += f * f; }
+  const n = numFrames;
+  const slope = n > 1 ? (n * sxy - sx * sy) / (n * sx2 - sx * sx + 1e-12) : 0;
+  const energy_curve = Math.max(-1, Math.min(1, slope / (mean + 1e-9) * 8));
+  return { dynamic_volatility, tempo_stability, energy_curve };
+}
+
+function computeEmotionalFFT(sonic, temporal, bpm, centroid) {
+  const bpmN = Math.min(1, Math.max(0, (bpm - 60) / 110));
+  const centN = Math.min(1, Math.max(0, (centroid - 200) / 7800));
+  const melancholy = Math.min(1, (sonic.sub_bass * 0.35 + sonic.bass * 0.3) * (1 - bpmN * 0.4) * (1 - centN + 0.1));
+  const hope       = Math.min(1, (sonic.mid * 0.45 + sonic.high_mid * 0.35) * (0.25 + bpmN * 0.75) * (centN + 0.1));
+  const aggression = Math.min(1, temporal.dynamic_volatility * 0.5 + (sonic.bass + sonic.sub_bass) * 0.25 * bpmN);
+  const nostalgia  = Math.min(1, sonic.low_mid * 0.55 + sonic.bass * 0.3 * (1 - temporal.tempo_stability * 0.25));
+  const wonder     = Math.min(1, sonic.air * 0.45 + sonic.treble * 0.3 + Math.max(0, temporal.energy_curve) * 0.25);
+  return { melancholy, hope, aggression, nostalgia, wonder };
+}
+
+function computeStructuralFFT(samples) {
+  const segLen = Math.max(1, Math.floor(samples.length / 6));
+  const labels = ['intro','verse','pre','chorus','bridge','outro'];
+  let total = 0;
+  const energies = labels.map((_, i) => {
+    let e = 0;
+    const s = i * segLen, end = Math.min(s + segLen, samples.length);
+    for (let j = s; j < end; j++) e += samples[j] * samples[j];
+    total += e;
+    return e;
+  });
+  const out = {};
+  labels.forEach((l, i) => { out[l] = total > 0 ? energies[i] / total : 1/6; });
+  return out;
+}
+
+function computeCadenceFFT(samples, sr) {
+  const hop = Math.round(sr * 0.01);
+  const numF = Math.floor(samples.length / hop);
+  const onsets = [];
+  let prevE = 0;
+  for (let f = 0; f < numF; f++) {
+    let e = 0;
+    const s = f * hop, end = Math.min(s + hop, samples.length);
+    for (let i = s; i < end; i++) e += samples[i] * samples[i];
+    if (e > prevE * 2.2 && e > 1e-4) onsets.push(f);
+    prevE = e;
+  }
+  const dur = samples.length / sr;
+  const syllables_per_second = Math.min(1, onsets.length / Math.max(1, dur) / 10);
+  let rapidCount = 0;
+  for (let i = 1; i < onsets.length; i++) {
+    if ((onsets[i] - onsets[i-1]) * hop / sr < 0.04) rapidCount++;
+  }
+  const harsh_transition = Math.min(1, rapidCount / Math.max(1, onsets.length));
+  let ioiSum = 0, ioiN = 0;
+  for (let i = 1; i < onsets.length; i++) {
+    const dt = (onsets[i] - onsets[i-1]) * hop / sr;
+    if (dt < 0.8) { ioiSum += dt; ioiN++; }
+  }
+  const phrase_length = ioiN > 0 ? Math.min(1, ioiSum / ioiN / 0.4) : 0.5;
+  return { syllables_per_second, pitch_jumps: harsh_transition * 0.7, falsetto: 0.1, harsh_transition, phrase_length };
+}
+
+function computeGenreVector(sonic, temporal, emotional, cadence, bpm) {
+  const bN = Math.min(1, Math.max(0, (bpm - 60) / 110));
+  return {
+    post_hardcore: Math.min(1, emotional.aggression * 0.45 + bN * 0.3 + cadence.harsh_transition * 0.25),
+    shoegaze:      Math.min(1, sonic.treble * 0.3 + sonic.air * 0.3 + (1 - temporal.dynamic_volatility) * 0.2 + (1 - bN) * 0.2),
+    emo:           Math.min(1, emotional.melancholy * 0.4 + (1 - Math.abs(bN - 0.4)) * 0.35 + sonic.mid * 0.25),
+    alternative:   Math.min(1, emotional.wonder * 0.3 + (1 - Math.abs(temporal.dynamic_volatility - 0.4)) * 0.35 + sonic.high_mid * 0.35),
+    pop_punk:      Math.min(1, bN * 0.4 + emotional.aggression * 0.3 + sonic.high_mid * 0.3),
+    rap:           Math.min(1, sonic.sub_bass * 0.4 + sonic.bass * 0.3 + cadence.syllables_per_second * 0.3)
+  };
+}
+
+function extractTasteEmbedding(audioBuf) {
+  // Limit to 20 seconds for performance
+  const fullSamples = audioBuf.getChannelData(0);
+  const sr = audioBuf.sampleRate;
+  const samples = fullSamples.slice(0, Math.min(fullSamples.length, sr * 20));
+  const sonic    = computeSonicFFT(samples, sr);
+  const temporal = computeTemporalFFT(samples, sr);
+  const feats    = extractAudioFeatures(samples, sr);
+  const emotional  = computeEmotionalFFT(sonic, temporal, feats.bpm, feats.centroid);
+  const structural = computeStructuralFFT(samples);
+  const cadence    = computeCadenceFFT(samples, sr);
+  const genre      = computeGenreVector(sonic, temporal, emotional, cadence, feats.bpm);
+  return { SonicFFT: sonic, TemporalFFT: temporal, EmotionalFFT: emotional,
+           StructuralFFT: structural, CadenceFFT: cadence, GenreVector: genre,
+           meta: { bpm: feats.bpm, key: feats.key, centroid: feats.centroid } };
+}
+
+function buildTasteProfile(embeddings) {
+  if (!embeddings.length) return null;
+  const keys = ['SonicFFT','TemporalFFT','EmotionalFFT','StructuralFFT','CadenceFFT','GenreVector'];
+  const profile = {};
+  for (const key of keys) {
+    profile[key] = {};
+    const fields = Object.keys(embeddings[0][key]);
+    for (const f of fields) {
+      profile[key][f] = embeddings.reduce((s, e) => s + e[key][f], 0) / embeddings.length;
+    }
+  }
+  return profile;
+}
+
+function embeddingToVector(emb) {
+  const v = [];
+  for (const key of ['SonicFFT','TemporalFFT','EmotionalFFT','StructuralFFT','CadenceFFT','GenreVector']) {
+    for (const val of Object.values(emb[key])) v.push(val);
+  }
+  return v;
+}
+
+function scoreSimilarity(embA, embB) {
+  const a = embeddingToVector(embA), b = embeddingToVector(embB);
+  let dot = 0, nA = 0, nB = 0;
+  for (let i = 0; i < a.length; i++) { dot += a[i]*b[i]; nA += a[i]*a[i]; nB += b[i]*b[i]; }
+  return nA > 0 && nB > 0 ? dot / (Math.sqrt(nA) * Math.sqrt(nB)) : 0;
+}
+
+function renderTasteRadar(profile) {
+  const canvas = document.getElementById('taste-radar');
+  if (!canvas || !profile) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height, cx = W / 2, cy = H / 2;
+  const R = Math.min(W, H) / 2 - 18;
+
+  // 6 axes: one per embedding dimension
+  const axes = [
+    { label: 'SONIC',  key: 'SonicFFT' },
+    { label: 'TEMPO',  key: 'TemporalFFT' },
+    { label: 'EMOTE',  key: 'EmotionalFFT' },
+    { label: 'STRUCT', key: 'StructuralFFT' },
+    { label: 'CADNC',  key: 'CadenceFFT' },
+    { label: 'GENRE',  key: 'GenreVector' },
+  ];
+  const n = axes.length;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#04010c';
+  ctx.fillRect(0, 0, W, H);
+
+  // Spider grid
+  for (let ring = 1; ring <= 3; ring++) {
+    ctx.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+      const r = R * ring / 3;
+      if (i === 0) ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+      else ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(147,51,234,.18)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+
+  // Axis lines
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + R * Math.cos(angle), cy + R * Math.sin(angle));
+    ctx.strokeStyle = 'rgba(147,51,234,.25)';
+    ctx.stroke();
+  }
+
+  // Profile polygon
+  const avgDim = key => {
+    const vals = Object.values(profile[key]);
+    return vals.reduce((s, v) => s + v, 0) / vals.length;
+  };
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const idx = i % n;
+    const angle = (idx / n) * 2 * Math.PI - Math.PI / 2;
+    const val = Math.min(1, Math.max(0, avgDim(axes[idx].key)));
+    const r = R * val;
+    if (i === 0) ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    else ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+  }
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(147,51,234,.2)';
+  ctx.fill();
+  ctx.strokeStyle = '#9333ea';
+  ctx.lineWidth = 1.5;
+  ctx.shadowBlur = 8;
+  ctx.shadowColor = 'rgba(147,51,234,.6)';
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Axis labels
+  ctx.fillStyle = 'rgba(200,192,216,.6)';
+  ctx.font = '7px IBM Plex Mono';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * 2 * Math.PI - Math.PI / 2;
+    const lr = R + 11;
+    ctx.fillText(axes[i].label, cx + lr * Math.cos(angle), cy + lr * Math.sin(angle) + 3);
+  }
+}
+
+async function addLikedSongs(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  ensureAudioCtx();
+  const statusEl = document.getElementById('taste-status');
+  for (const file of files) {
+    statusEl.textContent = `Analyzing ${file.name}…`;
+    try {
+      const ab = await file.arrayBuffer();
+      const audioBuf = await state.audioCtx.decodeAudioData(ab);
+      const emb = extractTasteEmbedding(audioBuf);
+      state.likedSongs.push({ name: file.name, embedding: emb });
+    } catch(e) {
+      statusEl.textContent = `Failed: ${file.name} — ${e.message}`;
+    }
+  }
+  input.value = '';
+  rebuildTasteProfile();
+}
+
+function removeLikedSong(idx) {
+  state.likedSongs.splice(idx, 1);
+  rebuildTasteProfile();
+}
+
+function clearLikedSongs() {
+  state.likedSongs = [];
+  state.tasteProfile = null;
+  state.tasteScore = null;
+  updateTasteUI();
+}
+
+function rebuildTasteProfile() {
+  state.tasteProfile = buildTasteProfile(state.likedSongs.map(s => s.embedding));
+  // Re-score current build if available
+  if (state.masterBuffer && state.tasteProfile) {
+    const buildEmb = extractTasteEmbedding(state.masterBuffer);
+    state.tasteScore = scoreSimilarity(buildEmb, state.tasteProfile);
+  }
+  updateTasteUI();
+}
+
+function updateTasteUI() {
+  const listEl   = document.getElementById('taste-songs-list');
+  const statusEl = document.getElementById('taste-status');
+  const radarWrap = document.getElementById('taste-radar-wrap');
+  const scoreRow = document.getElementById('taste-score-row');
+  const scoreEl  = document.getElementById('taste-score');
+
+  listEl.innerHTML = '';
+  state.likedSongs.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'taste-song-item';
+    const genres = s.embedding.GenreVector;
+    const topGenre = Object.entries(genres).sort((a,b) => b[1]-a[1])[0];
+    row.innerHTML = `<span class="taste-song-name" title="${s.name}">${s.name}</span>
+      <span style="font-size:8px;color:rgba(147,51,234,.7);flex-shrink:0">${topGenre[0].replace('_',' ')}</span>
+      <span class="taste-song-remove" onclick="removeLikedSong(${i})">✕</span>`;
+    listEl.appendChild(row);
+  });
+
+  if (!state.likedSongs.length) {
+    statusEl.textContent = 'No songs added yet.';
+    radarWrap.style.display = 'none';
+    scoreRow.style.display = 'none';
+    return;
+  }
+
+  statusEl.textContent = `Profile from ${state.likedSongs.length} song${state.likedSongs.length > 1 ? 's' : ''}.`;
+  radarWrap.style.display = 'block';
+  renderTasteRadar(state.tasteProfile);
+
+  if (state.tasteScore != null) {
+    scoreRow.style.display = 'block';
+    scoreEl.textContent = Math.round(state.tasteScore * 100) + '%';
+    scoreEl.style.color = state.tasteScore > 0.75 ? 'var(--green)' : state.tasteScore > 0.55 ? 'var(--gold-light)' : 'var(--text-mid)';
+  } else {
+    scoreRow.style.display = 'none';
+  }
 }
 
 // ── GENRE DECODER — AI ────────────────────────────────────────────────────────
