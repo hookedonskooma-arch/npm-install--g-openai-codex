@@ -180,10 +180,17 @@ input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 
 .preset-btn:hover{border-color:var(--gold);color:var(--gold-light)}
 .preset-btn.active{border-color:var(--gold);color:#f0e8ff;background:var(--gold);box-shadow:0 0 12px rgba(147,51,234,.5)}
 #compile-log{height:100px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.6;border-radius:2px}
-#vibe-read{display:none;margin-top:8px;padding:10px 12px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.3);border-radius:3px;font-size:10px;line-height:1.7;color:var(--gold-light)}
+#vibe-read{display:none;margin-top:8px;padding:10px 12px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.3);border-radius:3px;font-size:10px;line-height:1.7;color:var(--gold-light);border-left:3px solid var(--gold);line-height:1.85}
 #vibe-read.visible{display:block}
 #vibe-read-text{color:var(--text-dim)}
 #vibe-read-label{color:var(--gold);font-size:9px;letter-spacing:2px;margin-bottom:6px}
+#vibe-read-context{font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:5px}
+@keyframes vibe-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.vibe-read-loading{animation:vibe-pulse 1.2s ease-in-out infinite;color:var(--text-dim)}
+.vm-action-tag{display:inline-block;background:rgba(147,51,234,.2);border:1px solid rgba(147,51,234,.35);border-radius:2px;padding:1px 6px;font-size:8px;margin-right:4px;color:var(--gold-light)}
+.vm-action-tag.eq{background:rgba(255,180,0,.1);border-color:rgba(255,180,0,.3);color:#ffb400}
+.vibe-chat-dim{opacity:.4;pointer-events:none;transition:opacity .3s}
+#vibe-kb-hint{font-size:8px;color:var(--text-dim);margin-top:3px;letter-spacing:.5px}
 .log-line{color:var(--text-dim)}
 .log-line.ok{color:var(--green)}
 .log-line.warn{color:var(--orange)}
@@ -656,6 +663,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <div id="compile-log"></div>
       <div id="vibe-read">
         <div id="vibe-read-label">⬡ VIBE READ</div>
+        <div id="vibe-read-context"></div>
         <div id="vibe-read-text"></div>
       </div>
       <div class="sep"></div>
@@ -715,8 +723,11 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
     </select>
     <button class="btn primary" id="apply-correction-btn" onclick="applyCorrection()" disabled>APPLY FINGERPRINT</button>
     <div class="sep"></div>
-    <div class="section-label">VIBE MIX</div>
-    <div id="vibe-chat">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="section-label">VIBE MIX</div>
+      <button style="background:none;border:none;color:var(--text-dim);font-size:9px;cursor:pointer;padding:0;font-family:inherit" onclick="clearVibeChat()">× CLEAR</button>
+    </div>
+    <div id="vibe-chat" class="vibe-chat-dim">
       <div id="vibe-msgs">
         <div class="vm-ai"><div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>Load a file and describe the vibe. "Darker." "More room." "Push the sub." I'll adjust and re-render.</div>
       </div>
@@ -724,6 +735,7 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
         <textarea id="vibe-input" rows="2" placeholder="Describe the vibe..." disabled onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendVibeMsg()}"></textarea>
         <button id="vibe-send" disabled onclick="sendVibeMsg()">SEND</button>
       </div>
+      <div id="vibe-kb-hint">↵ SEND · ⇧↵ NEWLINE</div>
     </div>
     <div class="sep"></div>
     <button class="btn" id="preview-corrected-btn" onclick="previewCorrected()" disabled>PREVIEW</button>
@@ -2155,6 +2167,8 @@ function loadRefineFile(file) {
       document.getElementById('apply-correction-btn').disabled=false;
       document.getElementById('vibe-input').disabled=false;
       document.getElementById('vibe-send').disabled=false;
+      const chat = document.getElementById('vibe-chat');
+      if (chat) chat.classList.remove('vibe-chat-dim');
     } catch(err) {
       compileLog('REFINE ERROR: '+err.message, 'err');
     }
@@ -2208,11 +2222,21 @@ function sendToExport() {
 // ── VIBE READ ─────────────────────────────────────────────────────────────────
 async function getMasteringIntel(master, sr) {
   const apiKey = localStorage.getItem('melegi_api_key');
-  if (!apiKey) return;
   const el = document.getElementById('vibe-read');
   const txt = document.getElementById('vibe-read-text');
+  const ctx = document.getElementById('vibe-read-context');
   el.classList.add('visible');
-  txt.textContent = 'reading...';
+
+  // Context tag: chips · BPM · key
+  const chips = [...state.activeStyles].join(' · ').toUpperCase() || 'NO CHIPS';
+  const keyLabel = (state.exportKey || 'FMINOR').replace('MINOR',' MIN');
+  if (ctx) ctx.textContent = '⬡ ' + chips + ' · ' + state.bpm + ' BPM · ' + keyLabel;
+
+  if (!apiKey) {
+    txt.innerHTML = '<span style="color:var(--text-dim)">Add an Anthropic API key in ⚙ Settings to get a plain-language read of your beat.</span>';
+    return;
+  }
+  txt.innerHTML = '<span class="vibe-read-loading">reading…</span>';
 
   let sq=0, pk=0;
   for (let i=0;i<master.length;i++){sq+=master[i]*master[i];pk=Math.max(pk,Math.abs(master[i]));}
@@ -2222,7 +2246,7 @@ async function getMasteringIntel(master, sr) {
   const bands = computeBandEnergies(master, sr, 2048);
   const tot = bands.reduce((a,b)=>a+b,0)||1;
   const [sub,lomid,mid,himid,air] = bands.map(b=>Math.round(b/tot*100));
-  const chips = [...state.activeStyles].join(', ') || 'none';
+  const chipsLabel = [...state.activeStyles].join(', ') || 'none';
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -2231,7 +2255,7 @@ async function getMasteringIntel(master, sr) {
       body: JSON.stringify({
         model:'claude-haiku-4-5-20251001', max_tokens:180,
         messages:[{role:'user', content:
-          `You are MELEGI, a beat engineer. Give a 2-sentence plain-language read of this beat — what it sounds like, and one concrete thing to try. Be direct, no filler. Sound like a producer, not a manual.\n\nStats: ${state.bpm} BPM, centroid ${Math.round(centroid)} Hz (target 757 Hz), LUFS ${lufs.toFixed(1)}, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%, active chips: ${chips}.`
+          `You are MELEGI, a beat engineer. Give a 2-sentence plain-language read of this beat — what it sounds like, and one concrete thing to try. Be direct, no filler. Sound like a producer, not a manual.\n\nStats: ${state.bpm} BPM, centroid ${Math.round(centroid)} Hz (target 757 Hz), LUFS ${lufs.toFixed(1)}, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%, active chips: ${chipsLabel}.`
         }]
       })
     });
@@ -2239,7 +2263,7 @@ async function getMasteringIntel(master, sr) {
     const d = await res.json();
     txt.textContent = d.content?.[0]?.text?.trim() || '—';
   } catch(e) {
-    el.classList.remove('visible');
+    txt.innerHTML = '<span style="color:var(--text-dim)">Could not load vibe read: ' + e.message + '</span>';
   }
 }
 
@@ -2331,14 +2355,21 @@ async function sendVibeMsg() {
     // Replace the "thinking..." placeholder
     const msgs = document.getElementById('vibe-msgs');
     const last = msgs.lastElementChild;
-    const actionsHtml = actionLines.length ? `<div class="vm-actions">▸ ${actionLines.join(' · ')}</div>` : '';
-    last.innerHTML = `<div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>${actionsHtml}${reply}`;
+    const isEqType = (t) => ['lowshelf','highshelf','peaking','lowpass','highpass'].includes(t);
+    const tagsHtml = adjustments.map(a =>
+      `<span class="vm-action-tag${isEqType(a.type) ? ' eq' : ''}">${a.label || a.type}</span>`
+    ).join('');
+    const replyEl = document.createElement('span');
+    last.innerHTML = `<div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div><div style="margin-bottom:4px">${tagsHtml}</div>`;
+    last.appendChild(replyEl);
+    typeText(replyEl, reply, 38);
 
     document.getElementById('preview-corrected-btn').disabled = false;
     document.getElementById('send-to-export-btn').disabled = false;
 
     // Auto-preview
     previewCorrected();
+    updateRefineSpectral(working, sr);
 
   } catch(e) {
     const msgs = document.getElementById('vibe-msgs');
@@ -2347,6 +2378,53 @@ async function sendVibeMsg() {
   input.disabled = false;
   sendBtn.disabled = false;
   input.focus();
+}
+
+function typeText(el, text, msPerWord) {
+  msPerWord = msPerWord || 40;
+  el.textContent = '';
+  var words = text.split(' ');
+  var i = 0;
+  (function next() {
+    if (i >= words.length) return;
+    el.textContent += (i > 0 ? ' ' : '') + words[i++];
+    setTimeout(next, msPerWord);
+  })();
+}
+
+function clearVibeChat() {
+  var msgs = document.getElementById('vibe-msgs');
+  if (!msgs) return;
+  msgs.innerHTML = '<div class="vm-ai"><div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>Load a file and describe the vibe. "Darker." "More room." "Push the sub." I\'ll adjust and re-render.</div>';
+}
+
+function updateRefineSpectral(working, sr) {
+  var slice = working.slice(Math.floor(working.length / 4), Math.floor(working.length / 4) + 4096);
+  var centroid = computeCentroidApprox(slice, sr, 2048);
+  var cdEl = document.getElementById('centroid-display');
+  if (cdEl) {
+    cdEl.textContent = Math.round(centroid) + ' Hz';
+    var delta = centroid - 757;
+    var deltaEl = document.getElementById('centroid-delta');
+    if (deltaEl) deltaEl.textContent = 'DELTA: ' + (delta >= 0 ? '+' : '') + Math.round(delta) + ' Hz';
+    cdEl.className = Math.abs(delta) < 50 ? 'good' : Math.abs(delta) < 150 ? 'ok' : 'bad';
+  }
+  var bands = computeBandEnergies(working, sr, 2048);
+  var tot = bands.reduce(function(a, b) { return a + b; }, 0) || 1;
+  ['sub', 'lomid', 'mid', 'himid', 'air'].forEach(function(b, i) {
+    var pct = Math.round(bands[i] / tot * 100);
+    var fill = document.getElementById('band-' + b);
+    var pctEl = document.getElementById('bpct-' + b);
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+  });
+  var sq = 0;
+  for (var i = 0; i < working.length; i++) sq += working[i] * working[i];
+  var rmsDb = 20 * Math.log10(Math.sqrt(sq / working.length) || 1e-9);
+  var rmsEl = document.getElementById('rfi-rms');
+  var lufsEl = document.getElementById('rfi-lufs');
+  if (rmsEl) rmsEl.textContent = rmsDb.toFixed(1);
+  if (lufsEl) lufsEl.textContent = (rmsDb - 0.691).toFixed(1);
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
