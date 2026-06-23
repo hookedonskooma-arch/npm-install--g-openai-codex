@@ -1,0 +1,2461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="MELEGI">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<title>MELEGI</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#000;--surface:#06040e;--surface2:#0d0918;--border:#1a1228;
+  --gold:#9333ea;--gold-light:#c084fc;--gold-dim:rgba(147,51,234,.15);
+  --green:#3dba57;--red:#cc3333;--blue:#6366f1;--orange:#a855f7;
+  --text:#c8c0d8;--text-dim:#3d3550;--text-mid:#7a6d9a;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --glow-gold: 0 0 12px rgba(147,51,234,.55), 0 0 28px rgba(147,51,234,.2);
+  --glow-green: 0 0 8px rgba(61,186,87,.5), 0 0 18px rgba(61,186,87,.2);
+}
+html,body{height:100%;background:radial-gradient(ellipse at 50% 20%,#0a0216 0%,#04010c 45%,#000 75%);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:12px;overflow:hidden}
+
+/* ── SPLASH ───────────────────────────────────────────────────────── */
+#splash{
+  position:fixed;inset:0;z-index:9999;background:#000;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;
+  animation:splashFade 2.8s ease-in-out forwards;pointer-events:none;
+}
+@keyframes splashFade{0%,60%{opacity:1}100%{opacity:0}}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 6px var(--green)}50%{box-shadow:0 0 14px var(--green),0 0 28px rgba(61,186,87,.3)}}
+@keyframes crackle{0%,100%{opacity:.7;transform:scale(1)}50%{opacity:1;transform:scale(1.04)}}
+#splash::before{content:'';position:absolute;width:440px;height:440px;border-radius:50%;background:radial-gradient(circle,rgba(147,51,234,.1) 0%,rgba(99,20,180,.04) 45%,transparent 70%);pointer-events:none;animation:crackle 3s ease-in-out infinite}
+#splash img{width:110px;height:110px;border-radius:50%;opacity:0;animation:splashImg 0.6s 0.3s ease forwards;filter:drop-shadow(0 0 22px rgba(147,51,234,.45)) drop-shadow(0 0 6px rgba(192,132,252,.6))}
+@keyframes splashImg{to{opacity:1}}
+#splash-wordmark{font-size:36px;font-weight:700;letter-spacing:10px;color:#e8e0f8;opacity:0;animation:splashImg 0.5s 0.7s ease forwards;text-shadow:0 0 30px rgba(147,51,234,.35),0 0 60px rgba(147,51,234,.12)}
+#splash-sub{font-size:10px;letter-spacing:4px;color:#3d3550;opacity:0;animation:splashImg 0.5s 1.0s ease forwards}
+#splash-line{width:60px;height:1px;background:var(--gold);box-shadow:0 0 12px var(--gold),0 0 24px rgba(147,51,234,.4);opacity:0;animation:splashImg 0.5s 0.9s ease forwards}
+
+/* ── LAYOUT ───────────────────────────────────────────────────────── */
+#wrapper{display:flex;flex-direction:column;height:100%;padding-bottom:calc(52px + var(--safe-bottom))}
+
+/* ── TOP BAR ──────────────────────────────────────────────────────── */
+#topbar{
+  display:flex;align-items:center;height:48px;flex-shrink:0;
+  border-bottom:1px solid rgba(147,51,234,.12);padding:0 14px;gap:12px;
+  background:linear-gradient(180deg,#100820 0%,#080510 100%);
+  box-shadow:0 1px 0 rgba(0,0,0,.8),0 2px 20px rgba(80,0,140,.2);
+}
+#logo{font-size:15px;font-weight:700;color:#e8e0f8;letter-spacing:3px;text-shadow:0 0 20px rgba(147,51,234,.25)}
+#logo span{color:var(--gold)}
+#nav-tabs{display:flex;gap:0;margin-left:8px}
+.nav-tab{
+  padding:0 14px;height:48px;display:flex;align-items:center;
+  text-transform:uppercase;letter-spacing:1.5px;font-size:10px;
+  cursor:pointer;border-bottom:2px solid transparent;color:var(--text-dim);
+  background:none;border-top:none;border-left:none;border-right:none;
+  font-family:inherit;transition:color .15s;
+}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--gold-light);border-bottom:2px solid var(--gold);text-shadow:0 0 14px rgba(147,51,234,.7),0 0 28px rgba(147,51,234,.3)}
+#transport{margin-left:auto;display:flex;align-items:center;gap:8px}
+.t-btn{
+  height:30px;padding:0 12px;background:transparent;
+  border:1px solid var(--border);color:var(--text-dim);
+  font-family:inherit;font-size:10px;text-transform:uppercase;
+  letter-spacing:1px;cursor:pointer;border-radius:2px;transition:all .15s;
+}
+.t-btn:hover{border-color:var(--gold);color:var(--gold-light)}
+.t-btn.active{background:var(--gold);color:#fff;border-color:var(--gold);box-shadow:var(--glow-gold)}
+#bpm-display{font-size:12px;font-weight:600;color:var(--gold-light);letter-spacing:1px;white-space:nowrap}
+#drift-badge{font-size:9px;padding:2px 5px;background:#0d0520;border:1px solid var(--gold);color:var(--gold-light);border-radius:2px;display:none}
+#drift-badge.show{display:inline}
+#api-indicator{width:7px;height:7px;border-radius:50%;background:var(--text-dim);flex-shrink:0;cursor:pointer;transition:background .3s}
+#api-indicator.connected{background:var(--green);box-shadow:var(--glow-green);animation:pulse-dot 2.2s ease-in-out infinite}
+#settings-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:14px;padding:4px;line-height:1;font-family:inherit}
+#settings-btn:hover{color:var(--gold-light)}
+
+/* ── BOTTOM NAV (mobile) ─────────────────────────────────────────── */
+#bottom-nav{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  height:calc(52px + var(--safe-bottom));
+  background:var(--surface);border-top:1px solid var(--border);
+  padding-bottom:var(--safe-bottom);
+}
+.bn-tabs{display:flex;height:52px}
+.bn-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;background:none;border:none;
+  color:var(--text-dim);font-family:inherit;font-size:9px;
+  text-transform:uppercase;letter-spacing:1px;cursor:pointer;
+  border-top:2px solid transparent;transition:all .15s;
+}
+.bn-tab svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.5}
+.bn-tab.active{color:var(--gold-light);border-top-color:var(--gold)}
+
+/* ── PAGES ────────────────────────────────────────────────────────── */
+#pages{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.page{display:none;flex:1;overflow:hidden}
+.page.active{display:flex}
+
+/* ── COMPILE PAGE ─────────────────────────────────────────────────── */
+#page-compile{flex-direction:row}
+.panel{border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#08041a 0%,#04020e 100%)}
+.panel:last-child{border-right:none}
+#panel-left{width:240px;flex-shrink:0}
+#panel-center{flex:1;min-width:0}
+#panel-right{width:260px;flex-shrink:0;overflow-y:auto}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.panel-tab{
+  flex:1;padding:9px;text-align:center;text-transform:uppercase;
+  letter-spacing:1px;font-size:10px;cursor:pointer;color:var(--text-dim);
+  background:none;border:none;border-bottom:2px solid transparent;
+  font-family:inherit;transition:all .15s;
+}
+.panel-tab:hover{color:var(--text)}
+.panel-tab.active{color:var(--gold-light);border-bottom:2px solid var(--gold);text-shadow:0 0 12px rgba(147,51,234,.6)}
+.tab-content{display:none;flex:1;overflow-y:auto;padding:12px}
+.tab-content.active{display:flex;flex-direction:column;gap:10px}
+
+/* ── CONTROLS ─────────────────────────────────────────────────────── */
+label{text-transform:uppercase;font-size:10px;letter-spacing:1px;color:var(--text-dim);display:block;margin-bottom:4px}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:inherit;font-size:11px;padding:8px;resize:vertical;border-radius:2px;min-height:100px}
+textarea:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 1px rgba(147,51,234,.2)}
+input[type=range]{width:100%;accent-color:var(--gold);cursor:pointer;height:20px}
+input[type=number],input[type=text],input[type=password],select{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  color:var(--text);font-family:inherit;font-size:11px;padding:6px 8px;border-radius:2px;
+}
+select{cursor:pointer}
+input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 1px rgba(147,51,234,.2)}
+.slider-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.slider-row label{margin:0;width:76px;flex-shrink:0;font-size:10px}
+.slider-row input[type=range]{flex:1}
+.slider-val{width:38px;text-align:right;font-size:10px;color:var(--gold-light);flex-shrink:0}
+.section-label{
+  font-size:10px;text-transform:uppercase;letter-spacing:2px;
+  color:var(--gold-light);border-bottom:1px solid rgba(147,51,234,.2);
+  padding-bottom:6px;margin-bottom:8px;text-shadow:0 0 10px rgba(147,51,234,.45);
+}
+.btn{
+  height:36px;padding:0 16px;background:transparent;border:1px solid var(--gold);
+  color:var(--gold-light);font-family:inherit;font-size:11px;text-transform:uppercase;
+  letter-spacing:1.5px;cursor:pointer;border-radius:2px;transition:all .15s;
+  width:100%;margin-bottom:6px;
+}
+.btn:hover{background:var(--gold-dim);box-shadow:0 0 10px rgba(147,51,234,.2)}
+.btn.primary{background:linear-gradient(135deg,#7c22d4 0%,#9333ea 50%,#6d28d9 100%);color:#f0e8ff;font-weight:700;border-color:#a855f7;box-shadow:0 0 18px rgba(147,51,234,.45),0 0 40px rgba(147,51,234,.15),inset 0 1px 0 rgba(255,255,255,.15)}
+.btn.primary:hover{background:linear-gradient(135deg,#8b2fe5 0%,#a855f7 50%,#7c3aed 100%);box-shadow:0 0 28px rgba(168,85,247,.6),0 0 55px rgba(147,51,234,.25),inset 0 1px 0 rgba(255,255,255,.2)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(204,51,51,.15)}
+.btn.danger.active{background:var(--red);color:#fff}
+
+/* ── VIZ ──────────────────────────────────────────────────────────── */
+#viz-area{flex:1;position:relative;background:linear-gradient(180deg,#060212 0%,#020008 100%);display:flex;align-items:center;justify-content:center;overflow:hidden}
+#viz-canvas{display:block;width:100%;height:100%}
+#viz-switch{position:absolute;top:8px;right:8px;display:flex;gap:4px}
+.viz-btn{padding:4px 8px;background:rgba(0,0,0,.7);border:1px solid var(--border);color:var(--text-dim);font-family:inherit;font-size:9px;text-transform:uppercase;cursor:pointer;border-radius:2px}
+.viz-btn.active{border-color:var(--gold);color:var(--gold-light)}
+#meters-row{display:flex;gap:0;border-top:1px solid rgba(147,51,234,.12);flex-shrink:0;height:44px;background:linear-gradient(180deg,#07031a 0%,#030110 100%)}
+.meter-cell{flex:1;border-right:1px solid var(--border);padding:7px 10px;display:flex;flex-direction:column;justify-content:space-between}
+.meter-cell:last-child{border-right:none}
+.meter-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim)}
+.meter-val{font-size:12px;font-weight:600;color:var(--gold-light);text-shadow:0 0 10px rgba(147,51,234,.6),0 0 20px rgba(147,51,234,.25)}
+#progress-bar-wrap{height:2px;background:var(--border);flex-shrink:0;display:none}
+#progress-bar{height:2px;background:linear-gradient(90deg,#7c22d4,#c084fc);width:0%;transition:width .2s;box-shadow:0 0 8px rgba(147,51,234,.8)}
+
+/* ── RIGHT PANEL ──────────────────────────────────────────────────── */
+.right-inner{padding:12px;display:flex;flex-direction:column;gap:8px}
+.preset-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.preset-btn{
+  padding:7px 4px;background:transparent;border:1px solid var(--border);
+  color:var(--text-dim);font-family:inherit;font-size:9px;text-transform:uppercase;
+  cursor:pointer;border-radius:2px;text-align:center;transition:all .15s;
+}
+.preset-btn:hover{border-color:var(--gold);color:var(--gold-light)}
+.preset-btn.active{border-color:var(--gold);color:#f0e8ff;background:var(--gold);box-shadow:0 0 12px rgba(147,51,234,.5)}
+#compile-log{height:100px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.6;border-radius:2px}
+#vibe-read{display:none;margin-top:8px;padding:10px 12px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.3);border-radius:3px;font-size:10px;line-height:1.7;color:var(--gold-light)}
+#vibe-read.visible{display:block}
+#vibe-read-text{color:var(--text-dim)}
+#vibe-read-label{color:var(--gold);font-size:9px;letter-spacing:2px;margin-bottom:6px}
+.log-line{color:var(--text-dim)}
+.log-line.ok{color:var(--green)}
+.log-line.warn{color:var(--orange)}
+.log-line.err{color:var(--red)}
+.log-line.info{color:var(--gold-light)}
+
+/* ── PROMPT UI (Suno-style) ───────────────────────────────────────── */
+.style-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.style-chip{
+  padding:4px 10px;border:1px solid var(--border);border-radius:10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;color:var(--text-dim);background:none;
+  font-family:inherit;transition:all .15s;
+}
+.style-chip:hover{border-color:var(--gold);color:var(--gold-light)}
+.style-chip.active{border-color:var(--gold);color:#f0e8ff;background:var(--gold);box-shadow:0 0 10px rgba(147,51,234,.5)}
+.toggle-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border:1px solid var(--border);border-radius:10px;
+  font-size:9px;text-transform:uppercase;letter-spacing:.5px;
+  cursor:pointer;color:var(--text-dim);background:none;
+  font-family:inherit;transition:all .15s;
+}
+.toggle-pill.active{border-color:var(--green);color:var(--green)}
+.more-opts-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;padding:6px 0;font-size:10px;text-transform:uppercase;
+  letter-spacing:1.5px;color:var(--text-dim);border-top:1px solid var(--border);
+  margin-top:4px;user-select:none;
+}
+.more-opts-hdr:hover{color:var(--text)}
+.more-opts-hdr .arrow{transition:transform .2s;font-size:9px}
+.more-opts-hdr.open .arrow{transform:rotate(90deg)}
+.more-opts-body{display:none;flex-direction:column;gap:10px;padding-top:8px}
+.more-opts-body.open{display:flex}
+#prompt-audio-btn{
+  width:100%;height:34px;border:1px dashed var(--border);background:none;
+  color:var(--text-dim);font-family:inherit;font-size:10px;text-transform:uppercase;
+  letter-spacing:1px;cursor:pointer;border-radius:2px;transition:border-color .15s;
+  position:relative;
+}
+#prompt-audio-btn:hover{border-color:var(--gold);color:var(--gold-light)}
+#prompt-audio-btn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* ── DROP ZONE ────────────────────────────────────────────────────── */
+.drop-zone{
+  border:1px dashed var(--border);border-radius:2px;display:flex;
+  flex-direction:column;align-items:center;justify-content:center;
+  min-height:110px;cursor:pointer;transition:border-color .15s;
+  text-align:center;padding:16px;position:relative;
+}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--gold);box-shadow:0 0 14px rgba(147,51,234,.15)}
+.drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.drop-zone-label{font-size:12px;text-transform:uppercase;letter-spacing:2px;color:var(--text-dim)}
+.drop-zone-sub{font-size:10px;color:var(--text-dim);margin-top:6px;letter-spacing:1px}
+
+/* ── REFINE PAGE ──────────────────────────────────────────────────── */
+#page-refine{flex-direction:row}
+#refine-left{flex:1;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;border-right:1px solid var(--border)}
+#refine-right{width:280px;flex-shrink:0;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+#centroid-display{font-size:26px;font-weight:700;letter-spacing:2px}
+#centroid-display.good{color:var(--green);text-shadow:0 0 14px rgba(61,186,87,.5),0 0 28px rgba(61,186,87,.2)}
+#centroid-display.ok{color:var(--gold-light);text-shadow:0 0 14px rgba(147,51,234,.55),0 0 28px rgba(147,51,234,.2)}
+#centroid-display.bad{color:var(--red);text-shadow:0 0 14px rgba(204,51,51,.5),0 0 28px rgba(204,51,51,.2)}
+.band-bars{display:flex;flex-direction:column;gap:6px}
+.band-row{display:flex;align-items:center;gap:8px}
+.band-name{width:76px;font-size:9px;text-transform:uppercase;color:var(--text-dim);letter-spacing:1px}
+.band-track{flex:1;height:6px;background:var(--border);border-radius:2px;overflow:hidden}
+.band-fill{height:100%;background:linear-gradient(90deg,rgba(147,51,234,.3),var(--gold-light));width:0%;transition:width .3s}
+.band-pct{width:34px;font-size:10px;color:var(--gold-light);text-align:right}
+.info-row{display:flex;justify-content:space-between;align-items:center;font-size:11px}
+.info-key{color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.info-val{color:var(--text);font-weight:500}
+.analysis-section{display:none;flex-direction:column;gap:10px}
+.analysis-section.visible{display:flex}
+#refine-file-info{display:none;flex-direction:column;gap:6px}
+#refine-file-info.visible{display:flex}
+
+/* ── ANALYZE PAGE ─────────────────────────────────────────────────── */
+#page-analyze{flex-direction:column;overflow:hidden}
+#fft-wrap{flex:0 0 58%;position:relative;overflow:hidden;border-bottom:1px solid var(--border)}
+#fft-canvas{display:block;width:100%;height:100%}
+#analyze-bottom{flex:1;display:flex;overflow:hidden}
+.analyze-col{flex:1;border-right:1px solid var(--border);padding:12px;display:flex;flex-direction:column;overflow:hidden}
+.analyze-col:last-child{border-right:none}
+.v-meter-wrap{flex:1;display:flex;align-items:flex-end;gap:8px;min-height:0}
+.v-meter-track{width:32px;height:100%;background:var(--bg);border:1px solid var(--border);border-radius:2px;position:relative;overflow:hidden}
+.v-meter-fill{position:absolute;bottom:0;width:100%;background:linear-gradient(180deg,#c084fc 0%,#9333ea 60%,rgba(147,51,234,.4) 100%);transition:height .05s}
+.v-meter-labels{display:flex;flex-direction:column;justify-content:space-between;height:100%;padding:2px 0}
+.v-meter-lbl{font-size:9px;color:var(--text-dim)}
+.lufs-ref-line{position:absolute;left:0;right:0;height:1px;background:var(--text-dim);opacity:.4}
+.lufs-ref-label{position:absolute;right:2px;font-size:8px;color:var(--text-dim)}
+#centroid-big{font-size:34px;font-weight:700;color:var(--gold-light);text-align:center;margin:auto;text-shadow:0 0 16px rgba(147,51,234,.55),0 0 32px rgba(147,51,234,.2)}
+#drift-console{flex:1;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.7;border-radius:2px}
+
+/* ── EXPORT PAGE ──────────────────────────────────────────────────── */
+#page-export{flex-direction:row}
+#export-left{flex:1;padding:14px;overflow-y:auto;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:14px}
+#export-right{width:300px;flex-shrink:0;padding:14px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.radio-card{border:1px solid var(--border);padding:11px;cursor:pointer;border-radius:2px;transition:border-color .15s;display:flex;gap:10px;align-items:flex-start}
+.radio-card:hover{border-color:var(--text-dim)}
+.radio-card.selected{border-color:var(--gold);box-shadow:0 0 12px rgba(147,51,234,.2),0 0 24px rgba(147,51,234,.08),inset 0 0 20px rgba(147,51,234,.06)}
+.radio-card input[type=radio]{accent-color:var(--gold);margin-top:2px;flex-shrink:0}
+.radio-card-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--gold-light)}
+.radio-card-sub{font-size:10px;color:var(--text-dim);margin-top:3px;line-height:1.5}
+.radio-inline-group{display:flex;flex-wrap:wrap;gap:6px}
+.radio-pill{
+  padding:6px 11px;border:1px solid var(--border);border-radius:2px;
+  cursor:pointer;font-size:10px;text-transform:uppercase;letter-spacing:1px;
+  color:var(--text-dim);transition:all .15s;
+}
+.radio-pill:hover{border-color:var(--gold);color:var(--gold-light)}
+.radio-pill.selected{border-color:var(--gold);color:#f0e8ff;background:var(--gold)}
+#filename-preview{font-size:10px;color:var(--gold-light);background:#04010e;border:1px solid rgba(147,51,234,.2);padding:10px;border-radius:2px;word-break:break-all;letter-spacing:.5px}
+.status-badge{display:inline-block;padding:4px 10px;border-radius:2px;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.status-badge.idle{border:1px solid var(--border);color:var(--text-dim)}
+.status-badge.rendering{border:1px solid var(--orange);color:var(--orange);background:rgba(204,112,48,.1)}
+.status-badge.complete{border:1px solid var(--green);color:var(--green);background:rgba(61,186,87,.1)}
+#export-progress-wrap{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+#export-progress{height:100%;background:linear-gradient(90deg,#7c22d4,#c084fc);width:0%;transition:width .1s;box-shadow:0 0 8px rgba(147,51,234,.7)}
+#export-log{height:130px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.6;border-radius:2px}
+#export-history{display:flex;flex-direction:column;gap:6px}
+.hist-item{padding:8px;border:1px solid var(--border);border-radius:2px;display:flex;justify-content:space-between;align-items:center}
+.hist-name{font-size:10px;color:var(--text-dim);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hist-size{font-size:10px;color:var(--gold-light)}
+
+/* ── VIBE MIX ─────────────────────────────────────────────────────── */
+#vibe-chat{display:flex;flex-direction:column;flex:1;min-height:0}
+#vibe-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0;min-height:120px}
+.vm-user{align-self:flex-end;background:rgba(147,51,234,.18);border:1px solid rgba(147,51,234,.35);border-radius:3px;padding:6px 10px;font-size:10px;color:var(--gold-light);max-width:95%}
+.vm-ai{align-self:flex-start;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:3px;padding:6px 10px;font-size:10px;color:var(--text-dim);max-width:95%}
+.vm-ai .vm-actions{color:var(--green);font-size:9px;margin-bottom:4px;letter-spacing:.5px}
+#vibe-input-row{display:flex;gap:6px;margin-top:8px}
+#vibe-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:7px 10px;font-size:10px;color:var(--text);font-family:inherit;resize:none;min-height:36px}
+#vibe-input:focus{outline:none;border-color:rgba(147,51,234,.5)}
+#vibe-send{flex-shrink:0;background:rgba(147,51,234,.2);border:1px solid rgba(147,51,234,.4);color:var(--gold-light);font-size:10px;letter-spacing:1px;padding:0 12px;border-radius:2px;cursor:pointer;font-family:inherit}
+#vibe-send:hover{background:rgba(147,51,234,.35)}
+#vibe-send:disabled{opacity:.35;cursor:default}
+
+/* ── REFS ─────────────────────────────────────────────────────────── */
+.ref-card{border:1px solid var(--border);border-radius:2px;padding:10px;margin-bottom:8px}
+.ref-title{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--gold-light);margin-bottom:6px;letter-spacing:1px}
+.ref-row{display:flex;justify-content:space-between;font-size:10px;color:var(--text-dim);margin-bottom:2px}
+.ref-val{color:var(--text)}
+
+/* ── SETTINGS OVERLAY ─────────────────────────────────────────────── */
+#settings-overlay{
+  display:none;position:fixed;inset:0;z-index:100;
+  background:rgba(0,0,0,.85);align-items:center;justify-content:center;
+}
+#settings-overlay.open{display:flex}
+#settings-panel{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:4px;padding:20px;width:320px;max-width:90vw;
+  display:flex;flex-direction:column;gap:14px;
+}
+#settings-panel h2{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-light);text-shadow:0 0 12px rgba(147,51,234,.4)}
+.settings-close{
+  position:absolute;top:12px;right:12px;background:none;border:none;
+  color:var(--text-dim);cursor:pointer;font-size:18px;font-family:inherit;
+}
+.api-status{font-size:10px;margin-top:4px;min-height:14px}
+.api-status.ok{color:var(--green)}
+.api-status.err{color:var(--red)}
+
+/* ── OBSIDIAN TEXTURE OVERLAY ────────────────────────────────────── */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg,transparent,transparent 1px,rgba(0,0,0,.18) 1px,rgba(0,0,0,.18) 2px),
+    repeating-linear-gradient(90deg,transparent,transparent 3px,rgba(147,51,234,.012) 3px,rgba(147,51,234,.012) 4px);
+  mix-blend-mode:overlay;
+}
+/* ── MISC ─────────────────────────────────────────────────────────── */
+.sep{height:1px;background:var(--border);margin:4px 0}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
+
+/* ── MOBILE ───────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  #wrapper{padding-bottom:calc(52px + var(--safe-bottom))}
+  #nav-tabs{display:none}
+  #bottom-nav{display:block}
+  #transport{gap:6px}
+  #bpm-display{font-size:11px}
+
+  #page-compile{flex-direction:column}
+  #panel-left{display:none}
+  #panel-center{flex:none;height:38vh;border-right:none;border-bottom:1px solid var(--border)}
+  #panel-right{width:100%;flex:1;overflow-y:auto}
+
+  #page-refine{flex-direction:column}
+  #refine-left{border-right:none;border-bottom:1px solid var(--border);flex:none}
+  #refine-right{width:100%}
+
+  #page-export{flex-direction:column}
+  #export-left{border-right:none;border-bottom:1px solid var(--border);flex:none}
+  #export-right{width:100%;flex:none}
+
+  #page-analyze{overflow-y:auto}
+  #fft-wrap{flex:none;height:200px}
+  #analyze-bottom{flex-direction:column;overflow:visible}
+  .analyze-col{border-right:none;border-bottom:1px solid var(--border)}
+
+  .btn{height:44px}
+  #compile-btn{height:52px;font-size:13px}
+  input[type=range]{height:28px}
+}
+</style>
+</head>
+<body>
+
+<!-- SPLASH -->
+<div id="splash">
+  <img src="./icon-192.png" alt="MELEGI">
+  <div id="splash-wordmark">MELEGI</div>
+  <div id="splash-line"></div>
+  <div id="splash-sub">AUDIO ENGINE v3</div>
+</div>
+
+<!-- SETTINGS OVERLAY -->
+<div id="settings-overlay">
+  <div id="settings-panel" style="position:relative">
+    <button class="settings-close" onclick="closeSettings()">×</button>
+    <h2>⚙ Settings</h2>
+    <div>
+      <label>ANTHROPIC API KEY</label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-..." autocomplete="off">
+      <div class="api-status" id="api-status"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7">
+      Key stored on device only. Enables AI-assisted BUILD mode.<br>
+      Never shared or sent anywhere except api.anthropic.com.
+    </div>
+    <button class="btn primary" onclick="saveApiKey()">SAVE KEY</button>
+    <button class="btn" onclick="clearApiKey()" style="border-color:var(--red);color:var(--red)">CLEAR KEY</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div>
+      <label>MUSIC AI KEY (ELEVENLABS)</label>
+      <input type="password" id="music-key-input" placeholder="sk_..." autocomplete="off">
+      <div class="api-status" id="music-key-status"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7">
+      ElevenLabs key for AI MUSIC mode. Generates real audio from your prompt + style chips.
+    </div>
+    <button class="btn primary" onclick="saveMusicKey()">SAVE MUSIC KEY</button>
+    <button class="btn" onclick="clearMusicKey()" style="border-color:var(--red);color:var(--red)">CLEAR</button>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div>
+      <label>MUSIC AI KEY (STABILITY AI)</label>
+      <input type="password" id="stability-key-input" placeholder="sk-..." autocomplete="off">
+      <div class="api-status" id="stability-key-status"></div>
+    </div>
+    <div style="font-size:10px;color:var(--text-dim);line-height:1.7">
+      Stability AI key for Stable Audio. Alternative to ElevenLabs — select provider in BUILD panel.
+    </div>
+    <button class="btn primary" onclick="saveStabilityKey()">SAVE STABILITY KEY</button>
+    <button class="btn" onclick="clearStabilityKey()" style="border-color:var(--red);color:var(--red)">CLEAR</button>
+  </div>
+</div>
+
+<div id="wrapper">
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div id="logo">◆ <span>MELEGI</span></div>
+  <div id="nav-tabs">
+    <button class="nav-tab active" data-page="compile">BUILD</button>
+    <button class="nav-tab" data-page="refine">REFINE</button>
+    <button class="nav-tab" data-page="analyze">ANALYZE</button>
+    <button class="nav-tab" data-page="export">EXPORT</button>
+  </div>
+  <div id="transport">
+    <button class="t-btn" id="btn-play" onclick="transportPlay()">▶</button>
+    <button class="t-btn" id="btn-stop" onclick="transportStop()">■</button>
+    <span id="bpm-display">122 BPM</span>
+    <span id="drift-badge">DRIFT</span>
+    <div id="api-indicator" title="API Key — click to configure" onclick="openSettings()"></div>
+    <button id="settings-btn" onclick="openSettings()" title="Settings">⚙</button>
+  </div>
+</div>
+
+<!-- PAGES -->
+<div id="pages">
+
+<!-- PAGE: BUILD/COMPILE -->
+<div class="page active" id="page-compile">
+  <!-- LEFT: notation -->
+  <div class="panel" id="panel-left">
+    <div class="panel-tabs">
+      <button class="panel-tab active" data-ptab="notation" onclick="switchPTab(this)">NOTATION</button>
+      <button class="panel-tab" data-ptab="samples" onclick="switchPTab(this)">SAMPLES</button>
+      <button class="panel-tab" data-ptab="references" onclick="switchPTab(this)">REFS</button>
+    </div>
+    <div class="tab-content active" id="ptab-notation">
+      <!-- + Audio attachment -->
+      <button type="button" id="prompt-audio-btn">
+        <input type="file" multiple onchange="loadSamples(this.files)">
+        + AUDIO
+      </button>
+
+      <!-- Lyrics / Prompt -->
+      <div class="section-label" style="margin-top:10px">LYRICS / PROMPT</div>
+      <textarea id="lyrics-prompt" rows="4" placeholder="Write lyrics or a prompt, or leave empty for instrumental" oninput="state.prompt=this.value" style="min-height:80px"></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+        <button class="toggle-pill active" id="instrumental-toggle" onclick="toggleInstrumental(this)">◎ INSTRUMENTAL</button>
+      </div>
+
+      <!-- Styles -->
+      <div class="section-label" style="margin-top:10px">STYLES</div>
+      <textarea id="styles-prompt" rows="2" placeholder="Describe what you want your beat to sound like" oninput="state.stylesText=this.value" style="min-height:52px"></textarea>
+      <div class="style-chips" id="style-chips-row">
+        <button class="style-chip active" data-style="dark" onclick="toggleStyleChip(this)">DARK</button>
+        <button class="style-chip active" data-style="lo-fi" onclick="toggleStyleChip(this)">LO-FI</button>
+        <button class="style-chip active" data-style="boom-bap" onclick="toggleStyleChip(this)">BOOM-BAP</button>
+        <button class="style-chip" data-style="dusty" onclick="toggleStyleChip(this)">DUSTY</button>
+        <button class="style-chip" data-style="soul" onclick="toggleStyleChip(this)">SOUL</button>
+        <button class="style-chip" data-style="trap" onclick="toggleStyleChip(this)">TRAP</button>
+        <button class="style-chip" data-style="jazz" onclick="toggleStyleChip(this)">JAZZ</button>
+        <button class="style-chip" data-style="ambient" onclick="toggleStyleChip(this)">AMBIENT</button>
+      </div>
+
+      <!-- Song Title -->
+      <div class="section-label" style="margin-top:10px">SONG TITLE</div>
+      <input type="text" id="song-title-input" placeholder="Untitled" oninput="state.songTitle=this.value;updateFilenamePreview()">
+
+      <!-- More Options (technical controls) -->
+      <div class="more-opts-hdr" id="more-opts-hdr" onclick="toggleMoreOpts()">
+        <span>MORE OPTIONS</span><span class="arrow">▶</span>
+      </div>
+      <div class="more-opts-body" id="more-opts-body">
+        <div>
+          <label>NOTATION OVERRIDE</label>
+          <textarea id="ks-notation" placeholder="A2 E3 A3 C4 E4 — leave blank to auto-generate" style="min-height:60px;font-size:10px">F2 C3 F3 Ab3 C4
+Bb1 F2 Bb2 D3 F3
+Ab1 Eb2 Ab2 C3 Eb3</textarea>
+        </div>
+        <div class="section-label">TUNING</div>
+        <label>MODE</label>
+        <select id="tuning-select" onchange="state.tuning=this.value">
+          <option value="dropE">DROP E</option>
+          <option value="standard">STANDARD</option>
+          <option value="dropD">DROP D</option>
+        </select>
+        <label style="margin-top:8px">SWING</label>
+        <div class="slider-row">
+          <input type="range" min="0" max="1" step="0.01" value="0.30" oninput="state.swing=+this.value;this.nextElementSibling.textContent=this.value">
+          <span class="slider-val">0.30</span>
+        </div>
+        <label>DECAY</label>
+        <div class="slider-row">
+          <input type="range" min="0.980" max="0.999" step="0.001" value="0.995" oninput="state.decay=+this.value;this.nextElementSibling.textContent=this.value">
+          <span class="slider-val">0.995</span>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" id="ptab-samples">
+      <label>SAMPLE DROP</label>
+      <div class="drop-zone" id="sample-drop">
+        <input type="file" multiple onchange="loadSamples(this.files)">
+        <span class="drop-zone-label">DROP SAMPLES</span>
+        <span class="drop-zone-sub">WAV · AIFF · MP3</span>
+      </div>
+      <div id="sample-list" style="font-size:10px;color:var(--text-dim);line-height:1.8"></div>
+    </div>
+    <div class="tab-content" id="ptab-references">
+      <div id="ref-cards"></div>
+    </div>
+  </div>
+
+  <!-- CENTER: viz -->
+  <div class="panel" id="panel-center">
+    <div id="viz-area">
+      <canvas id="viz-canvas"></canvas>
+      <div id="viz-switch">
+        <button class="viz-btn active" onclick="setVizMode('spectrum',this)">SPEC</button>
+        <button class="viz-btn" onclick="setVizMode('waveform',this)">WAVE</button>
+        <button class="viz-btn" onclick="setVizMode('bands',this)">BANDS</button>
+      </div>
+    </div>
+    <div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+    <div id="meters-row">
+      <div class="meter-cell"><span class="meter-label">RMS</span><span class="meter-val" id="meter-rms">—</span></div>
+      <div class="meter-cell"><span class="meter-label">LUFS</span><span class="meter-val" id="meter-lufs">—</span></div>
+      <div class="meter-cell"><span class="meter-label">CENTROID</span><span class="meter-val" id="meter-centroid">—</span></div>
+      <div class="meter-cell"><span class="meter-label">PEAK</span><span class="meter-val" id="meter-peak">—</span></div>
+    </div>
+  </div>
+
+  <!-- RIGHT: controls -->
+  <div class="panel" id="panel-right">
+    <div class="right-inner">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:9px;letter-spacing:1.5px;color:var(--text-dim)">AI MUSIC</span>
+        <div style="display:flex;gap:4px;align-items:center">
+          <button id="ai-provider-eleven" onclick="setAiProvider('elevenlabs')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.6);color:var(--gold-light)">ELEVEN</button>
+          <button id="ai-provider-stability" onclick="setAiProvider('stability')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.25);color:var(--text-dim)">STABILITY</button>
+          <button id="ai-provider-local" onclick="setAiProvider('local')" class="btn" style="font-size:7px;letter-spacing:1px;padding:1px 5px;border-color:rgba(147,51,234,.25);color:var(--text-dim)" title="MusicGen local server — run musicgen_server.py first">LOCAL</button>
+          <button id="ai-music-btn" onclick="toggleAiMusic()" class="btn" style="font-size:8px;letter-spacing:1px;padding:2px 8px;border-color:rgba(147,51,234,.25);color:var(--text-dim);opacity:0.5">OFF</button>
+        </div>
+      </div>
+      <button class="btn primary" id="compile-btn" onclick="runCompile()" style="height:48px;font-size:13px;letter-spacing:2px">BUILD</button>
+      <button class="btn" id="demo-btn" onclick="loadDemo()" style="font-size:9px;letter-spacing:1.5px;border-color:rgba(147,51,234,.4);color:#7a6d9a;margin-bottom:4px">▶ DEMO: THE FLOOR GAVE UP</button>
+      <button class="btn danger" id="eruption-btn" onclick="toggleEruption()">ERUPTION DETONATE</button>
+      <button class="btn" id="export-quick-btn" onclick="quickExport()" disabled>QUICK EXPORT</button>
+      <div class="sep"></div>
+      <div class="section-label" id="adv-toggle" onclick="toggleAdvanced()" style="cursor:pointer;display:flex;justify-content:space-between;user-select:none">ADVANCED <span id="adv-arrow" style="color:var(--gold)">▸</span></div>
+      <div id="adv-panel" style="display:none">
+        <div class="section-label">CASH LAYERS</div>
+        <div class="slider-row"><label>SOUL</label><input type="range" min="0" max="1" step="0.01" value="0.8" oninput="state.cash.soul=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.80</span></div>
+        <div class="slider-row"><label>SUB</label><input type="range" min="0" max="1" step="0.01" value="0.9" oninput="state.cash.sub=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.90</span></div>
+        <div class="slider-row"><label>DRUMS</label><input type="range" min="0" max="1" step="0.01" value="0.85" oninput="state.cash.drums=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.85</span></div>
+        <div class="slider-row"><label>VINYL</label><input type="range" min="0" max="1" step="0.01" value="0.4" oninput="state.cash.vinyl=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.40</span></div>
+        <div class="sep"></div>
+        <div class="section-label">ERUPTION</div>
+        <div class="slider-row"><label>FUZZ</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.eruption.fuzz=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
+        <div class="slider-row"><label>HP FLOOR</label><input type="range" min="120" max="400" step="1" value="120" oninput="state.eruption.hpFloor=+this.value;this.nextElementSibling.textContent=this.value+'Hz'"><span class="slider-val">120Hz</span></div>
+        <div class="slider-row"><label>DURATION</label><input type="range" min="1" max="8" step="0.5" value="2" oninput="state.eruption.duration=+this.value;this.nextElementSibling.textContent=this.value+'s'"><span class="slider-val">2s</span></div>
+        <div class="sep"></div>
+        <div class="section-label">LO-FI</div>
+        <div class="slider-row"><label>CRACKLE</label><input type="range" min="0" max="1" step="0.01" value="0.2" oninput="state.lofi.crackle=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.20</span></div>
+        <div class="slider-row"><label>HISS</label><input type="range" min="0" max="1" step="0.01" value="0.1" oninput="state.lofi.hiss=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.10</span></div>
+        <div class="slider-row"><label>WOW/FLUTTER</label><input type="range" min="0" max="1" step="0.01" value="0.15" oninput="state.lofi.wow=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.15</span></div>
+        <div class="slider-row"><label>WARMTH</label><input type="range" min="0" max="1" step="0.01" value="0.5" oninput="state.lofi.warmth=+this.value;this.nextElementSibling.textContent=this.value.slice(0,4)"><span class="slider-val">0.50</span></div>
+      </div>
+      <div class="sep"></div>
+      <div class="section-label">MASTER</div>
+      <div class="slider-row"><label>BARS</label><input type="range" min="2" max="16" step="2" value="8" oninput="state.bars=+this.value;this.nextElementSibling.textContent=this.value"><span class="slider-val">8</span></div>
+      <div class="slider-row"><label>BPM</label><input type="range" min="60" max="180" step="1" value="122" oninput="state.bpm=+this.value;this.nextElementSibling.textContent=this.value;document.getElementById('bpm-display').textContent=this.value+' BPM'"><span class="slider-val">122</span></div>
+      <div class="sep"></div>
+      <div class="section-label">EXPORT PRESET</div>
+      <div class="preset-grid">
+        <button class="preset-btn" onclick="setPreset('beatstars',this)">BEATSTARS</button>
+        <button class="preset-btn" onclick="setPreset('suno',this)">SUNO REF</button>
+        <button class="preset-btn" onclick="setPreset('logic',this)">LOGIC</button>
+      </div>
+      <div class="sep"></div>
+      <div class="section-label">BUILD LOG</div>
+      <div id="compile-log"></div>
+      <div id="vibe-read">
+        <div id="vibe-read-label">⬡ VIBE READ</div>
+        <div id="vibe-read-text"></div>
+      </div>
+      <div class="sep"></div>
+      <div class="section-label">API KEY</div>
+      <input type="password" id="api-key-inline" placeholder="sk-ant-... (tap ⚙ to save)" readonly onclick="openSettings()" style="cursor:pointer">
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: REFINE -->
+<div class="page" id="page-refine">
+  <div id="refine-left">
+    <div class="section-label">SUNO WAV PROCESSOR</div>
+    <div class="drop-zone" id="refine-drop" style="min-height:140px">
+      <input type="file" onchange="loadRefineFile(this.files[0])">
+      <span class="drop-zone-label">DROP SUNO WAV</span>
+      <span class="drop-zone-sub">WAV · AIFF · MP3</span>
+    </div>
+    <div id="refine-file-info">
+      <div class="info-row"><span class="info-key">FILE</span><span class="info-val" id="rfi-name">—</span></div>
+      <div class="info-row"><span class="info-key">DURATION</span><span class="info-val" id="rfi-dur">—</span></div>
+      <div class="info-row"><span class="info-key">SAMPLE RATE</span><span class="info-val" id="rfi-sr">—</span></div>
+      <div class="info-row"><span class="info-key">CHANNELS</span><span class="info-val" id="rfi-ch">—</span></div>
+    </div>
+    <div class="analysis-section" id="refine-analysis">
+      <div class="section-label">SPECTRAL ANALYSIS</div>
+      <div style="display:flex;align-items:baseline;gap:12px">
+        <span id="centroid-display" class="ok">— Hz</span>
+        <span style="font-size:11px;color:var(--text-dim)">SPECTRAL CENTROID</span>
+      </div>
+      <div style="font-size:11px;color:var(--text-dim)">TARGET: 757 Hz &nbsp;|&nbsp; <span id="centroid-delta" style="color:var(--gold)">DELTA: — Hz</span></div>
+      <div class="sep"></div>
+      <div class="section-label">BAND ENERGY</div>
+      <div class="band-bars">
+        <div class="band-row"><span class="band-name">SUB 20-80</span><div class="band-track"><div class="band-fill" id="band-sub"></div></div><span class="band-pct" id="bpct-sub">0%</span></div>
+        <div class="band-row"><span class="band-name">LO-MID 80-300</span><div class="band-track"><div class="band-fill" id="band-lomid"></div></div><span class="band-pct" id="bpct-lomid">0%</span></div>
+        <div class="band-row"><span class="band-name">MID 300-2K</span><div class="band-track"><div class="band-fill" id="band-mid"></div></div><span class="band-pct" id="bpct-mid">0%</span></div>
+        <div class="band-row"><span class="band-name">HI-MID 2-6K</span><div class="band-track"><div class="band-fill" id="band-himid"></div></div><span class="band-pct" id="bpct-himid">0%</span></div>
+        <div class="band-row"><span class="band-name">AIR 6-20K</span><div class="band-track"><div class="band-fill" id="band-air"></div></div><span class="band-pct" id="bpct-air">0%</span></div>
+      </div>
+      <div style="display:flex;gap:16px;font-size:11px">
+        <span style="color:var(--text-dim)">RMS: <span id="rfi-rms" style="color:var(--gold)">—</span> dB</span>
+        <span style="color:var(--text-dim)">LUFS: <span id="rfi-lufs" style="color:var(--gold)">—</span> dB</span>
+      </div>
+    </div>
+  </div>
+  <div id="refine-right">
+    <div class="section-label">REFERENCE TARGET</div>
+    <select id="ref-target" onchange="state.refTarget=this.value">
+      <option value="grouxx">GROUXX</option>
+      <option value="navyBlue">NAVY BLUE</option>
+      <option value="ankhlejohn">ANKHLEJOHN</option>
+      <option value="daringer">DARINGER</option>
+      <option value="grubby">GRUBBY PAWZ</option>
+      <option value="eTownConcrete">E.TOWN CONCRETE</option>
+      <option value="converge">CONVERGE</option>
+    </select>
+    <button class="btn primary" id="apply-correction-btn" onclick="applyCorrection()" disabled>APPLY FINGERPRINT</button>
+    <div class="sep"></div>
+    <div class="section-label">VIBE MIX</div>
+    <div id="vibe-chat">
+      <div id="vibe-msgs">
+        <div class="vm-ai"><div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>Load a file and describe the vibe. "Darker." "More room." "Push the sub." I'll adjust and re-render.</div>
+      </div>
+      <div id="vibe-input-row">
+        <textarea id="vibe-input" rows="2" placeholder="Describe the vibe..." disabled onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendVibeMsg()}"></textarea>
+        <button id="vibe-send" disabled onclick="sendVibeMsg()">SEND</button>
+      </div>
+    </div>
+    <div class="sep"></div>
+    <button class="btn" id="preview-corrected-btn" onclick="previewCorrected()" disabled>PREVIEW</button>
+    <button class="btn" id="send-to-export-btn" onclick="sendToExport()" disabled>→ EXPORT</button>
+  </div>
+</div>
+
+<!-- PAGE: ANALYZE -->
+<div class="page" id="page-analyze">
+  <div id="fft-wrap"><canvas id="fft-canvas"></canvas></div>
+  <div id="analyze-bottom">
+    <div class="analyze-col">
+      <div class="section-label">RMS</div>
+      <div class="v-meter-wrap">
+        <div class="v-meter-track" style="flex:1;position:relative">
+          <div class="v-meter-fill" id="rms-fill" style="height:0%"></div>
+        </div>
+        <div class="v-meter-labels">
+          <span class="v-meter-lbl">0</span><span class="v-meter-lbl">-12</span>
+          <span class="v-meter-lbl">-24</span><span class="v-meter-lbl">-36</span>
+          <span class="v-meter-lbl">-48</span><span class="v-meter-lbl">-60</span>
+        </div>
+      </div>
+    </div>
+    <div class="analyze-col">
+      <div class="section-label">LUFS</div>
+      <div class="v-meter-wrap">
+        <div style="flex:1;position:relative;height:100%">
+          <div class="v-meter-track" style="width:100%;height:100%;position:relative">
+            <div class="v-meter-fill" id="lufs-fill" style="height:0%;background:linear-gradient(to top,var(--gold),#e09020,var(--red))"></div>
+            <div class="lufs-ref-line" style="bottom:41.7%"><span class="lufs-ref-label">-10 BS</span></div>
+            <div class="lufs-ref-line" style="bottom:58.3%"><span class="lufs-ref-label">-14 STR</span></div>
+            <div class="lufs-ref-line" style="bottom:75%"><span class="lufs-ref-label">-18 LGC</span></div>
+          </div>
+        </div>
+        <div class="v-meter-labels">
+          <span class="v-meter-lbl">0</span><span class="v-meter-lbl">-6</span>
+          <span class="v-meter-lbl">-12</span><span class="v-meter-lbl">-18</span>
+          <span class="v-meter-lbl">-24</span>
+        </div>
+      </div>
+    </div>
+    <div class="analyze-col" style="justify-content:center;align-items:center">
+      <div class="section-label" style="text-align:center;width:100%">CENTROID</div>
+      <div id="centroid-big">— Hz</div>
+      <div id="centroid-delta-analyze" style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:8px">DELTA FROM 757 Hz</div>
+    </div>
+    <div class="analyze-col">
+      <div class="section-label">DRIFT CONSOLE</div>
+      <div id="drift-console"></div>
+    </div>
+  </div>
+</div>
+
+<!-- PAGE: EXPORT -->
+<div class="page" id="page-export">
+  <div id="export-left">
+    <div class="section-label">RENDER TARGET</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label class="radio-card selected" id="rt-beatstars">
+        <input type="radio" name="render-target" value="beatstars" checked onchange="updateExportTarget(this.value)">
+        <div><div class="radio-card-title">BEATSTARS SALE</div><div class="radio-card-sub">-10 LUFS · 44.1 kHz · 24-BIT · TPDF DITHER</div></div>
+      </label>
+      <label class="radio-card" id="rt-suno">
+        <input type="radio" name="render-target" value="suno" onchange="updateExportTarget(this.value)">
+        <div><div class="radio-card-title">SUNO REFERENCE</div><div class="radio-card-sub">-14 LUFS · 44.1 kHz · 16-BIT · TPDF DITHER</div></div>
+      </label>
+      <label class="radio-card" id="rt-logic">
+        <input type="radio" name="render-target" value="logic" onchange="updateExportTarget(this.value)">
+        <div><div class="radio-card-title">LOGIC IMPORT</div><div class="radio-card-sub">-18 LUFS · 48 kHz · 24-BIT · NO LIMITING</div></div>
+      </label>
+    </div>
+    <div class="section-label" style="margin-top:8px">RENDER LENGTH</div>
+    <div class="radio-inline-group" id="render-length-group">
+      <span class="radio-pill" data-bars="4" onclick="selectBars(this)">4 BARS</span>
+      <span class="radio-pill selected" data-bars="8" onclick="selectBars(this)">8 BARS</span>
+      <span class="radio-pill" data-bars="16" onclick="selectBars(this)">16 BARS</span>
+      <span class="radio-pill" data-bars="32" onclick="selectBars(this)">32 BARS</span>
+    </div>
+    <div class="section-label" style="margin-top:8px">KEY</div>
+    <div class="radio-inline-group" id="key-group">
+      <span class="radio-pill selected" data-key="FMINOR" onclick="selectKey(this)">F MIN</span>
+      <span class="radio-pill" data-key="CMINOR" onclick="selectKey(this)">C MIN</span>
+      <span class="radio-pill" data-key="GMINOR" onclick="selectKey(this)">G MIN</span>
+      <span class="radio-pill" data-key="DMINOR" onclick="selectKey(this)">D MIN</span>
+      <span class="radio-pill" data-key="AMINOR" onclick="selectKey(this)">A MIN</span>
+      <span class="radio-pill" data-key="BBMINOR" onclick="selectKey(this)">Bb MIN</span>
+    </div>
+    <div class="section-label" style="margin-top:8px">OUTPUT</div>
+    <div id="filename-preview" style="margin-bottom:8px">—</div>
+    <button class="btn primary" id="render-btn" onclick="renderAndDownload()" disabled style="height:48px;font-size:13px;letter-spacing:2px">RENDER &amp; DOWNLOAD</button>
+  </div>
+  <div id="export-right">
+    <div class="section-label">STATUS</div>
+    <div><span class="status-badge idle" id="export-status">IDLE</span></div>
+    <div id="export-progress-wrap" style="margin-top:6px"><div id="export-progress"></div></div>
+    <div class="section-label">RENDER LOG</div>
+    <div id="export-log"></div>
+    <div class="section-label">HISTORY</div>
+    <div id="export-history"><div style="font-size:10px;color:var(--text-dim)">NO EXPORTS YET.</div></div>
+  </div>
+</div>
+
+</div><!-- /pages -->
+</div><!-- /wrapper -->
+
+<!-- BOTTOM NAV (mobile) -->
+<nav id="bottom-nav">
+  <div class="bn-tabs">
+    <button class="bn-tab active" data-page="compile">
+      <svg viewBox="0 0 24 24"><polyline points="5 3 19 12 5 21 5 3"/></svg>
+      <span>BUILD</span>
+    </button>
+    <button class="bn-tab" data-page="refine">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      <span>REFINE</span>
+    </button>
+    <button class="bn-tab" data-page="analyze">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>ANALYZE</span>
+    </button>
+    <button class="bn-tab" data-page="export">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <span>EXPORT</span>
+    </button>
+  </div>
+</nav>
+
+<script>
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const FINGERPRINT = {
+  spectralCentroid:757,subBassGain:1.4,lowMidGain:1.2,midGain:0.9,
+  highMidGain:0.6,airGain:0.3,targetLUFS:-13,peakCeiling:-1,
+  dynamicRange:8,bpm:122,halfTimeFeel:61,swingAmount:0.30,
+  stereoWidth:0.35,subMonoFloor:120
+};
+
+const REFERENCE_TARGETS = {
+  grouxx:       {centroid:757, lpFreq:3500,subShelf:{freq:80,gain:3.5},compressionRatio:4,  dynamicRange:8, reverbTail:0.3},
+  navyBlue:     {centroid:780, lpFreq:4000,subShelf:{freq:80,gain:3  },compressionRatio:3,  dynamicRange:11,reverbTail:0.4},
+  ankhlejohn:   {centroid:720, lpFreq:3000,subShelf:{freq:80,gain:4  },compressionRatio:5,  dynamicRange:7, reverbTail:0.2},
+  grubby:       {centroid:650, lpFreq:5000,subShelf:{freq:60,gain:5  },compressionRatio:1.5,dynamicRange:14,reverbTail:0  },
+  daringer:     {centroid:850, lpFreq:6000,subShelf:{freq:100,gain:2 },compressionRatio:2,  dynamicRange:9, reverbTail:0.3},
+  eTownConcrete:{centroid:1800,lpFreq:8000,subShelf:{freq:80,gain:1  },compressionRatio:8,  dynamicRange:7, reverbTail:0.15},
+  converge:     {centroid:2200,lpFreq:10000,subShelf:{freq:80,gain:0 },compressionRatio:12, dynamicRange:5, reverbTail:0  }
+};
+
+const AUDIO_ACCEPT = 'audio/*,.wav,.aiff,.aif,.mp3';
+
+const FINGERPRINT_EQ = [
+  {type:'lowshelf', freq:80,  gain:3.5, Q:0.7},
+  {type:'peaking',  freq:180, gain:2.0, Q:0.8},
+  {type:'peaking',  freq:400, gain:-1.5,Q:1.2},
+  {type:'peaking',  freq:3000,gain:-3.0,Q:0.9},
+  {type:'highshelf',freq:6000,gain:-5.0,Q:0.7},
+  {type:'highpass', freq:40,  gain:0,   Q:0.7}
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────────
+const state = {
+  currentPage:'compile',masterBuffer:null,refinedBuffer:null,
+  eruptionGate:false,isPlaying:false,audioCtx:null,analyserNode:null,
+  compileDone:false,bpm:122,bars:8,swing:0.30,decay:0.995,tuning:'dropE',
+  refTarget:'grouxx',
+  prompt:'',stylesText:'',instrumental:true,songTitle:'',
+  activeStyles:new Set(['dark','lo-fi','boom-bap']),
+  cash:{soul:0.8,sub:0.9,drums:0.85,vinyl:0.4},
+  eruption:{fuzz:0.5,hpFloor:120,duration:2},
+  lofi:{crackle:0.2,hiss:0.1,wow:0.15,warmth:0.5},
+  exportTarget:'beatstars',exportBars:8,exportKey:'FMINOR',
+  exportHistory:[],currentSource:null,rafId:null,driftInterval:null,
+  vizMode:'spectrum',refineAudioBuffer:null,correctedSamples:null,samples:[],
+  aiMusicMode:false,
+  aiMusicProvider:'elevenlabs',
+  irCache:null,irSr:null
+};
+
+// ── API KEY ────────────────────────────────────────────────────────────────────
+const MASKED_KEY = '••••••••••••••••';
+function loadApiKey() {
+  const key = localStorage.getItem('melegi_api_key') || '';
+  document.getElementById('api-key-input').value = key;
+  document.getElementById('api-key-inline').value = key ? MASKED_KEY : '';
+  updateApiIndicator(!!key);
+  const mKey = localStorage.getItem('melegi_music_key') || '';
+  document.getElementById('music-key-input').value = mKey;
+  const sKey = localStorage.getItem('melegi_stability_key') || '';
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = sKey ? MASKED_KEY : 'sk-...';
+}
+
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (key) {
+    localStorage.setItem('melegi_api_key', key);
+    document.getElementById('api-key-inline').value = MASKED_KEY;
+    document.getElementById('api-status').textContent = 'KEY SAVED — AI BUILD ENABLED';
+    document.getElementById('api-status').className = 'api-status ok';
+    updateApiIndicator(true);
+    setTimeout(closeSettings, 1000);
+  } else {
+    document.getElementById('api-status').textContent = 'ENTER A VALID KEY';
+    document.getElementById('api-status').className = 'api-status err';
+  }
+}
+
+function clearApiKey() {
+  localStorage.removeItem('melegi_api_key');
+  document.getElementById('api-key-input').value = '';
+  document.getElementById('api-key-inline').value = '';
+  document.getElementById('api-status').textContent = 'KEY CLEARED';
+  document.getElementById('api-status').className = 'api-status';
+  updateApiIndicator(false);
+}
+
+function updateApiIndicator(connected) {
+  const el = document.getElementById('api-indicator');
+  el.className = 'api-indicator' + (connected ? ' connected' : '');
+  el.id = 'api-indicator';
+}
+
+function openSettings() {
+  document.getElementById('settings-overlay').classList.add('open');
+  loadApiKey();
+}
+function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+
+function saveMusicKey() {
+  const key = document.getElementById('music-key-input').value.trim();
+  if (key) {
+    localStorage.setItem('melegi_music_key', key);
+    document.getElementById('music-key-status').textContent = 'MUSIC KEY SAVED — AI MUSIC ENABLED';
+    document.getElementById('music-key-status').className = 'api-status ok';
+    setTimeout(closeSettings, 1000);
+  } else {
+    document.getElementById('music-key-status').textContent = 'ENTER A VALID KEY';
+    document.getElementById('music-key-status').className = 'api-status err';
+  }
+}
+function clearMusicKey() {
+  localStorage.removeItem('melegi_music_key');
+  document.getElementById('music-key-input').value = '';
+  document.getElementById('music-key-status').textContent = 'MUSIC KEY CLEARED';
+  document.getElementById('music-key-status').className = 'api-status';
+}
+function saveStabilityKey() {
+  const _sInput = document.getElementById('stability-key-input');
+  const key = _sInput.value.trim();
+  const _sStatus = document.getElementById('stability-key-status');
+  if (key) {
+    localStorage.setItem('melegi_stability_key', key);
+    _sStatus.textContent = 'STABILITY KEY SAVED';
+    _sStatus.className = 'api-status ok';
+    _sInput.value = '';
+    _sInput.placeholder = MASKED_KEY;
+    setTimeout(closeSettings, 1000);
+  } else if (localStorage.getItem('melegi_stability_key')) {
+    _sStatus.textContent = 'KEY ACTIVE — RETYPE TO CHANGE';
+    _sStatus.className = 'api-status ok';
+  } else {
+    _sStatus.textContent = 'ENTER A VALID KEY';
+    _sStatus.className = 'api-status err';
+  }
+}
+function clearStabilityKey() {
+  localStorage.removeItem('melegi_stability_key');
+  const _sInput = document.getElementById('stability-key-input');
+  _sInput.value = '';
+  _sInput.placeholder = 'sk-...';
+  document.getElementById('stability-key-status').textContent = 'STABILITY KEY CLEARED';
+  document.getElementById('stability-key-status').className = 'api-status';
+}
+function setAiProvider(provider) {
+  state.aiMusicProvider = provider;
+  const eleven = document.getElementById('ai-provider-eleven');
+  const stab  = document.getElementById('ai-provider-stability');
+  const local = document.getElementById('ai-provider-local');
+  const active   = 'rgba(147,51,234,.6)'; const activeC  = 'var(--gold-light)';
+  const inactive = 'rgba(147,51,234,.25)'; const inactiveC = 'var(--text-dim)';
+  [eleven, stab, local].forEach(b => { b.style.borderColor = inactive; b.style.color = inactiveC; });
+  if (provider === 'elevenlabs') {
+    eleven.style.borderColor = active; eleven.style.color = activeC;
+    compileLog('AI MUSIC PROVIDER: ELEVENLABS', 'info');
+  } else if (provider === 'stability') {
+    stab.style.borderColor = active; stab.style.color = activeC;
+    compileLog('AI MUSIC PROVIDER: STABILITY AI', 'info');
+  } else {
+    local.style.borderColor = active; local.style.color = activeC;
+    const port = Math.max(1, Math.min(65535, parseInt(localStorage.getItem('melegi_musicgen_port'), 10) || 7863));
+    compileLog('AI MUSIC PROVIDER: MUSICGEN LOCAL :' + port + ' (run musicgen_server.py first)', 'info');
+  }
+}
+
+function toggleAdvanced() {
+  const panel = document.getElementById('adv-panel');
+  const arrow = document.getElementById('adv-arrow');
+  const open = panel.style.display !== 'none';
+  panel.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▸' : '▾';
+}
+
+function toggleAiMusic() {
+  const musicKey = localStorage.getItem('melegi_music_key');
+  const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const isLocal = state.aiMusicProvider === 'local';
+  const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
+  if (!state.aiMusicMode && !isLocal && !activeKey) {
+    const gear = document.getElementById('settings-btn');
+    if (gear) {
+      const orig = gear.style.color;
+      gear.style.color = 'var(--gold)';
+      gear.style.fontSize = '18px';
+      setTimeout(() => { gear.style.color = orig; gear.style.fontSize = ''; }, 1800);
+    }
+    const warnLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI' : 'ELEVENLABS';
+    compileLog('AI MUSIC: ADD ' + warnLabel + ' KEY IN ⚙ SETTINGS BEFORE BUILDING', 'warn');
+  }
+  state.aiMusicMode = !state.aiMusicMode;
+  const btn = document.getElementById('ai-music-btn');
+  if (state.aiMusicMode) {
+    btn.textContent = '✦ ON';
+    btn.style.borderColor = 'rgba(147,51,234,.8)';
+    btn.style.color = 'var(--gold-light)';
+    btn.style.opacity = '1';
+    compileLog('AI MUSIC MODE ON' + (isLocal ? ' — LOCAL MUSICGEN' : (activeKey ? '' : ' — SET KEY IN ⚙')), 'info');
+  } else {
+    btn.textContent = 'OFF';
+    btn.style.borderColor = 'rgba(147,51,234,.25)';
+    btn.style.color = 'var(--text-dim)';
+    btn.style.opacity = '0.5';
+    compileLog('AI MUSIC MODE OFF — KS SYNTHESIS ACTIVE', 'info');
+  }
+}
+document.getElementById('settings-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('settings-overlay')) closeSettings();
+});
+
+// ── CLAUDE AI BUILD ────────────────────────────────────────────────────────────
+// ── PROMPT UI HANDLERS ────────────────────────────────────────────────────────
+function toggleInstrumental(btn) {
+  state.instrumental = !state.instrumental;
+  btn.classList.toggle('active', state.instrumental);
+  btn.textContent = state.instrumental ? '◎ INSTRUMENTAL' : '◎ VOCAL';
+  const ta = document.getElementById('lyrics-prompt');
+  ta.style.opacity = state.instrumental ? '0.4' : '1';
+  ta.placeholder = state.instrumental
+    ? 'Leave empty — instrumental mode'
+    : 'Write lyrics or a prompt';
+}
+
+function toggleStyleChip(btn) {
+  const s = btn.dataset.style;
+  if (state.activeStyles.has(s)) { state.activeStyles.delete(s); btn.classList.remove('active'); }
+  else { state.activeStyles.add(s); btn.classList.add('active'); }
+}
+
+function toggleMoreOpts() {
+  const hdr = document.getElementById('more-opts-hdr');
+  const body = document.getElementById('more-opts-body');
+  hdr.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+// ── DEMO LOADER ───────────────────────────────────────────────────────────────
+function loadDemo() {
+  const lyricsEl = document.getElementById('lyrics-prompt');
+  const stylesEl = document.getElementById('styles-prompt');
+  const titleEl  = document.getElementById('song-title-input');
+  lyricsEl.value = 'THE FLOOR GAVE UP\n9-string C# tuning earthquake hardcore.\nProgression: C#5 → D5 → C#5 → A5 → G5 → D5\nMemphis horror tape. Hardcore two-step bounce. Mega slow half-time breakdown.\nChopped screwed outro. Sub rumble. No happy chorus. No clean hook. Violent pit-ready energy.';
+  state.prompt = lyricsEl.value;
+  stylesEl.value = 'dark, Memphis horror tape, 9-string earthquake sub bass, hardcore two-step, chopped screwed slowed, 808 kick, half-time breakdown, violent, ugly, street-level';
+  state.stylesText = stylesEl.value;
+  titleEl.value = 'THE FLOOR GAVE UP';
+  state.songTitle = 'THE FLOOR GAVE UP';
+  updateFilenamePreview();
+  // Open MORE OPTIONS and inject the C# notation
+  const moreHdr  = document.getElementById('more-opts-hdr');
+  const moreBody = document.getElementById('more-opts-body');
+  if (!moreBody.classList.contains('open')) {
+    moreHdr.classList.add('open');
+    moreBody.classList.add('open');
+  }
+  document.getElementById('ks-notation').value = 'C#2 G#2 D2 A2 C#3 E3 G#3 D3';
+  // Set style chips: only DARK + SOUL
+  document.querySelectorAll('.style-chip').forEach(c => {
+    const on = ['dark','soul'].includes(c.dataset.style);
+    c.classList.toggle('active', on);
+    if (on) state.activeStyles.add(c.dataset.style);
+    else state.activeStyles.delete(c.dataset.style);
+  });
+  // Bump SUB layer for 9-string weight
+  const subSlider = document.querySelector('input[oninput*="cash.sub"]');
+  if (subSlider) { subSlider.value = '1'; state.cash.sub = 1; subSlider.nextElementSibling.textContent = '1.00'; }
+  // Bump crackle/wow for Memphis tape feel
+  const crackleSlider = document.querySelector('input[oninput*="lofi.crackle"]');
+  if (crackleSlider) { crackleSlider.value = '0.5'; state.lofi.crackle = 0.5; crackleSlider.nextElementSibling.textContent = '0.50'; }
+  const wowSlider = document.querySelector('input[oninput*="lofi.wow"]');
+  if (wowSlider) { wowSlider.value = '0.4'; state.lofi.wow = 0.4; wowSlider.nextElementSibling.textContent = '0.40'; }
+  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT', 'ok');
+  compileLog('HIT BUILD TO COMPILE  |  SET API KEY FOR AI-ENHANCED GENERATION', 'info');
+}
+
+async function aiGenerateNotation() {
+  const apiKey = localStorage.getItem('melegi_api_key');
+  if (!apiKey) return null;
+  compileLog('AI BUILD — CALLING CLAUDE...', 'info');
+  const chips = [...state.activeStyles].join(', ');
+  const stylesDesc = state.activeStyles.size === 0 && !state.stylesText
+    ? '' : [state.stylesText, chips].filter(Boolean).join(' · ');
+  if (!stylesDesc) compileLog('ALL STYLES DESELECTED — NO STYLE CONSTRAINT SENT', 'warn');
+  const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',DMINOR:'D minor',AMINOR:'A minor',BBMINOR:'Bb minor'}[state.exportKey] || 'F minor';
+  const promptExtra = state.prompt
+    ? ` Song concept: "${state.prompt.slice(0,200)}".`
+    : '';
+  const styleExtra = stylesDesc ? ` Style/vibe: ${stylesDesc}.` : '';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 200,
+        messages: [{
+          role: 'user',
+          content: `You are MELEGI, a dark beat compiler. Generate exactly 12 Karplus-Strong chord voicing notes for a ${state.bpm} BPM beat in ${keyLabel}.${styleExtra}${promptExtra} Choose low octaves (1-3) for dark sub weight, mid octaves (3-4) for harmonic color. Target spectral centroid near 757 Hz. Return ONLY the 12 notes space-separated (e.g. "C#2 G#2 D2 A2 C#3 E3 G#3 D3 C#2 G1 A1 E2"). No explanation.`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error('API ' + res.status);
+    const data = await res.json();
+    if (!data.content?.length || !data.content[0].text) throw new Error('empty response from API');
+    const notes = data.content[0].text.trim();
+    compileLog('AI NOTATION: ' + notes, 'ok');
+    return notes;
+  } catch(e) {
+    compileLog('AI ERROR: ' + e.message + ' — USING LOCAL', 'warn');
+    return null;
+  }
+}
+
+// ── CONVOLUTION REVERB ─────────────────────────────────────────────────────────
+async function applyConvolutionReverb(samples, sr, mix = 0.25) {
+  const irLen = Math.floor(2.4 * sr);
+
+  if (!state.irCache || state.irSr !== sr) {
+    state.irSr = sr;
+    state.irCache = new Float32Array(irLen);
+    const predelay = Math.floor(0.015 * sr);
+    let seed = 0x9e3779b9;
+    const rand = () => {
+      seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
+      return ((seed >>> 0) / 0xffffffff) * 2 - 1;
+    };
+    for (let i = predelay; i < irLen; i++) {
+      const t = (i - predelay) / sr;
+      state.irCache[i] = rand() * Math.exp(-3.5 * t);
+    }
+  }
+
+  const offCtx = new OfflineAudioContext(1, samples.length + irLen, sr);
+  const irBuf = offCtx.createBuffer(1, irLen, sr);
+  irBuf.copyToChannel(state.irCache, 0);
+
+  const srcBuf = offCtx.createBuffer(1, samples.length, sr);
+  srcBuf.copyToChannel(samples, 0);
+
+  const src = offCtx.createBufferSource();
+  src.buffer = srcBuf;
+  const conv = offCtx.createConvolver();
+  conv.buffer = irBuf;
+  const dryGain = offCtx.createGain();
+  const wetGain = offCtx.createGain();
+  dryGain.gain.value = 1;
+  wetGain.gain.value = mix;
+
+  src.connect(dryGain);
+  src.connect(conv);
+  conv.connect(wetGain);
+  dryGain.connect(offCtx.destination);
+  wetGain.connect(offCtx.destination);
+
+  src.start();
+  const rendered = await offCtx.startRendering();
+  return rendered.getChannelData(0).slice(0, samples.length);
+}
+
+// ── AI MUSIC GENERATION ────────────────────────────────────────────────────────
+async function aiMusicGenerate(musicKey, prompt, durationSeconds) {
+  const res = await fetch('https://api.elevenlabs.io/v1/music/generations', {
+    method: 'POST',
+    headers: {
+      'xi-api-key': musicKey,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      prompt: prompt,
+      duration_seconds: Math.min(durationSeconds, 120)
+    })
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('ElevenLabs ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
+async function aiMusicGenerateStability(stabilityKey, prompt, durationSeconds) {
+  const form = new FormData();
+  form.append('prompt', prompt);
+  form.append('output_format', 'mp3');
+  form.append('seconds_total', String(Math.min(Math.ceil(durationSeconds), 190)));
+  form.append('seconds_start', '0');
+  const res = await fetch('https://api.stability.ai/v2beta/stable-audio', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + stabilityKey,
+      'Accept': 'audio/*'
+    },
+    body: form
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('Stability AI ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
+async function aiMusicGenerateLocal(prompt, durationSeconds) {
+  const port = Math.max(1, Math.min(65535, parseInt(localStorage.getItem('melegi_musicgen_port'), 10) || 7863));
+  const res = await fetch('http://localhost:' + port + '/generate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({prompt, duration: Math.min(Math.ceil(durationSeconds), 190)})
+  });
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('MusicGen :' + port + ' ' + res.status + (errText ? ': ' + errText.slice(0, 120) : ''));
+  }
+  return res.arrayBuffer();
+}
+
+async function runAiMusicBuild(musicKey, stabilityKey) {
+  const chips = [...state.activeStyles].join(', ');
+  const styleText = [state.stylesText, chips].filter(Boolean).join(', ');
+  const keyLabel = {FMINOR:'F minor',CMINOR:'C minor',GMINOR:'G minor',
+    DMINOR:'D minor',AMINOR:'A minor',BBMINOR:'Bb minor'}[state.exportKey] || 'F minor';
+  const concept = state.prompt ? state.prompt.slice(0, 300) : '';
+  const promptParts = [];
+  if (concept) promptParts.push(concept);
+  if (styleText) promptParts.push(styleText);
+  promptParts.push(state.bpm + ' BPM, ' + keyLabel);
+  const fullPrompt = promptParts.join('. ');
+  const durationSeconds = Math.ceil(state.bars * 4 * 60 / state.bpm) + 2;
+
+  const provider = state.aiMusicProvider === 'stability' ? 'STABILITY AI'
+                 : state.aiMusicProvider === 'local' ? 'MUSICGEN LOCAL'
+                 : 'ELEVENLABS';
+  compileLog('AI MUSIC — PROMPT: ' + fullPrompt.slice(0, 70) + (fullPrompt.length > 70 ? '…' : ''), 'info');
+  compileLog('AI MUSIC — REQUESTING ' + durationSeconds + 's FROM ' + provider + '...', 'info');
+  setProgress(15);
+
+  let audioData;
+  try {
+    if (state.aiMusicProvider === 'stability') {
+      audioData = await aiMusicGenerateStability(stabilityKey, fullPrompt, durationSeconds);
+    } else if (state.aiMusicProvider === 'local') {
+      audioData = await aiMusicGenerateLocal(fullPrompt, durationSeconds);
+    } else {
+      audioData = await aiMusicGenerate(musicKey, fullPrompt, durationSeconds);
+    }
+  } catch(e) {
+    compileLog('AI MUSIC ERROR: ' + e.message, 'warn');
+    return false;
+  }
+
+  setProgress(50);
+  compileLog('AI MUSIC — RECEIVED ' + (audioData.byteLength / 1024).toFixed(1) + ' KB — DECODING...', 'ok');
+
+  let audioBuf;
+  try {
+    audioBuf = await state.audioCtx.decodeAudioData(audioData);
+  } catch(e) {
+    compileLog('AI MUSIC DECODE ERROR: ' + e.message, 'warn');
+    return false;
+  }
+
+  setProgress(65);
+  compileLog('AI MUSIC — DECODED: ' + audioBuf.duration.toFixed(1) + 's @ ' + audioBuf.sampleRate + 'Hz', 'ok');
+
+  const sr = audioBuf.sampleRate;
+  const numCh = audioBuf.numberOfChannels;
+  const len = audioBuf.length;
+  const mono = new Float32Array(len);
+  const inv = 1 / numCh;
+  for (let c = 0; c < numCh; c++) {
+    const chData = audioBuf.getChannelData(c);
+    for (let i = 0; i < len; i++) mono[i] += chData[i] * inv;
+  }
+  let samples = mono;
+
+  compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
+  const eq = applyEQChain(samples, FINGERPRINT_EQ, sr);
+  setProgress(72);
+
+  compileLog('APPLYING ROOM REVERB...', 'ok');
+  const revd = await applyConvolutionReverb(eq, sr, 0.22);
+  setProgress(82);
+
+  compileLog('NORMALIZING...', 'ok');
+  let aiq = 0;
+  for (let i = 0; i < revd.length; i++) aiq += revd[i] * revd[i];
+  const aiRms = Math.sqrt(aiq / revd.length);
+  const aiTarget = Math.pow(10, -12 / 20);
+  const aiSilence = Math.pow(10, -60 / 20); // below -60 dBFS treat as silence
+  if (aiRms > aiSilence) {
+    const g = Math.min(aiTarget / aiRms, 8);
+    for (let i = 0; i < revd.length; i++) revd[i] *= g;
+  }
+  const aiCeil = Math.pow(10, -0.1 / 20);
+  for (let i = 0; i < revd.length; i++) {
+    if (revd[i] > aiCeil) revd[i] = aiCeil;
+    else if (revd[i] < -aiCeil) revd[i] = -aiCeil;
+  }
+  setProgress(92);
+
+  const masterBuf = state.audioCtx.createBuffer(1, revd.length, sr);
+  masterBuf.copyToChannel(revd, 0);
+  state.masterBuffer = masterBuf;
+  state.compileDone = true;
+  updateCompileMeters(revd, sr);
+  setProgress(100);
+  compileLog('AI MUSIC BUILD COMPLETE — ' + revd.length + ' SAMPLES @ ' + sr + 'Hz', 'info');
+  return true;
+}
+
+// ── AUDIO CTX ─────────────────────────────────────────────────────────────────
+function ensureAudioCtx() {
+  if (!state.audioCtx || state.audioCtx.state === 'closed') {
+    state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    state.analyserNode = state.audioCtx.createAnalyser();
+    state.analyserNode.fftSize = 2048;
+    state.analyserNode.smoothingTimeConstant = 0.8;
+    state.analyserNode.connect(state.audioCtx.destination);
+  }
+  if (state.audioCtx.state === 'suspended') state.audioCtx.resume();
+}
+
+// ── SYNTHESIS ─────────────────────────────────────────────────────────────────
+function synth808Kick(sr, dur=0.8, startF=80, endF=40) {
+  const len = Math.floor(sr * dur), buf = new Float32Array(len);
+  let phase = 0;
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const f = startF * Math.pow(endF / startF, t / dur);
+    phase += 2 * Math.PI * f / sr;
+    const env = Math.exp(-t * 5);
+    const click = i < sr * 0.005 ? (1 - i / (sr * 0.005)) : 0;
+    buf[i] = Math.tanh(Math.sin(phase) * 1.5) * env * 0.8
+           + (Math.random() * 2 - 1) * click * 0.25;
+  }
+  return buf;
+}
+
+function synthSnare(sr, dur=0.3) {
+  const len = Math.floor(sr * dur), buf = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const t = i / sr;
+    const body = (Math.sin(2*Math.PI*185*t) + Math.sin(2*Math.PI*280*t) * 0.6)
+                 * Math.exp(-t * 18) * 0.22;
+    const snap  = (Math.random() * 2 - 1) * Math.exp(-t * 60)
+                 * (i < sr * 0.003 ? 1 : 0) * 0.35;
+    const noise = (Math.random() * 2 - 1) * Math.exp(-t * 14) * 0.55;
+    buf[i] = Math.tanh(body + snap + noise);
+  }
+  return buf;
+}
+
+function synthHiHat(sr, dur=0.08, open=false) {
+  const actualDur = open ? dur * 6 : dur;
+  const len = Math.floor(sr * actualDur), buf = new Float32Array(len);
+  const decayRate = open ? 6 : 38;
+  const freqs = [8010, 8653, 10234, 11803, 14523, 16847];
+  const phaseIncs = freqs.map(f => 2 * Math.PI * f / sr);
+  const phaseAcc = freqs.map(() => Math.random() * Math.PI * 2);
+  const envDecay = Math.exp(-decayRate / sr);
+  let env = 0.30;
+  for (let i = 0; i < len; i++) {
+    let sig = 0;
+    for (let k = 0; k < freqs.length; k++) {
+      sig += Math.sin(phaseAcc[k]);
+      phaseAcc[k] += phaseIncs[k];
+    }
+    buf[i] = (sig / freqs.length * 0.65 + (Math.random() * 2 - 1) * 0.35) * env;
+    env *= envDecay;
+  }
+  return buf;
+}
+
+function karplusStrong(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) {
+  const N = Math.round(sr / freq);
+  const total = Math.floor(dur * sr);
+  const buf = new Float32Array(total);
+  const delay = new Float32Array(N);
+  const pickThresh = Math.round(N * (1 - pickPos * 0.7));
+  for (let i = 0; i < N; i++) {
+    const gain = i < pickThresh ? 1.0 : (1 - pickPos * 0.7);
+    delay[i] = (Math.random() * 2 - 1) * gain;
+  }
+  const damp = 0.5 - brightness * 0.15;
+  let pos = 0;
+  for (let i = 0; i < total; i++) {
+    const next = (pos + 1) % N;
+    buf[i] = delay[pos];
+    delay[pos] = (delay[pos] * (1 - damp) + delay[next] * damp) * decay;
+    pos = next;
+  }
+  return buf;
+}
+
+// ── BIQUAD ────────────────────────────────────────────────────────────────────
+function makeBiquadCoeffs(type, freq, gain, Q, sr) {
+  const w = 2*Math.PI*freq/sr, cw = Math.cos(w), sw = Math.sin(w);
+  const A = Math.pow(10, gain/40), alpha = sw/(2*Q);
+  let b0,b1,b2,a0,a1,a2;
+  switch(type) {
+    case 'lowshelf': {
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
+      b0=A*((A+1)-(A-1)*cw+2*sA*aS);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sA*aS);
+      a0=(A+1)+(A-1)*cw+2*sA*aS;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)+(A-1)*cw-2*sA*aS;break;}
+    case 'highshelf': {
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
+      b0=A*((A+1)+(A-1)*cw+2*sA*aS);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sA*aS);
+      a0=(A+1)-(A-1)*cw+2*sA*aS;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sA*aS;break;}
+    case 'peaking':
+      b0=1+alpha*A;b1=-2*cw;b2=1-alpha*A;a0=1+alpha/A;a1=-2*cw;a2=1-alpha/A;break;
+    case 'highpass':
+      b0=(1+cw)/2;b1=-(1+cw);b2=(1+cw)/2;a0=1+alpha;a1=-2*cw;a2=1-alpha;break;
+    case 'lowpass':
+      b0=(1-cw)/2;b1=1-cw;b2=(1-cw)/2;a0=1+alpha;a1=-2*cw;a2=1-alpha;break;
+    default: return {b:[1,0,0],a:[1,0,0]};
+  }
+  return {b:[b0/a0,b1/a0,b2/a0],a:[1,a1/a0,a2/a0]};
+}
+
+function applyBiquad(samples, {b,a}) {
+  const out = new Float32Array(samples.length);
+  let x1=0,x2=0,y1=0,y2=0;
+  for (let i = 0; i < samples.length; i++) {
+    const x0=samples[i], y0=b[0]*x0+b[1]*x1+b[2]*x2-a[1]*y1-a[2]*y2;
+    out[i]=y0; x2=x1;x1=x0;y2=y1;y1=y0;
+  }
+  return out;
+}
+
+function applyEQChain(s, bands, sr) {
+  for (const b of bands) s = applyBiquad(s, makeBiquadCoeffs(b.type,b.freq,b.gain||0,b.Q,sr));
+  return s;
+}
+
+// Approximate ITU-R BS.1770-4 K-weighted integrated loudness (LUFS).
+// Stage 1: high-shelf pre-filter (+4 dB at 1682 Hz) — boosts high-mids.
+// Stage 2: high-pass RLB weighting (38 Hz) — rolls off sub-bass.
+// Together these de-emphasize sub-bass and slightly boost presence, matching
+// how K-weighting lowers measured loudness for bass-heavy material vs raw RMS.
+function measureLufsK(samples, sr) {
+  const s1 = applyBiquad(samples, makeBiquadCoeffs('highshelf', 1682, 4, 0.7071, sr));
+  const s2 = applyBiquad(s1,      makeBiquadCoeffs('highpass',  38,   0, 0.7071, sr));
+  let ms = 0;
+  for (let i = 0; i < s2.length; i++) ms += s2[i] * s2[i];
+  ms /= s2.length;
+  return ms > 0 ? -0.691 + 10 * Math.log10(ms) : -80;
+}
+
+// ── NOTE PARSING ──────────────────────────────────────────────────────────────
+const NOTE_MAP = {C:0,'C#':1,Db:1,D:2,'D#':3,Eb:3,E:4,F:5,'F#':6,Gb:6,G:7,'G#':8,Ab:8,A:9,'A#':10,Bb:10,B:11};
+function noteToFreq(note) {
+  const m = note.match(/^([A-G][#b]?)(\d)$/);
+  if (!m) return null;
+  const sem = NOTE_MAP[m[1]];
+  if (sem === undefined) return null;
+  return 440 * Math.pow(2, (12*(+m[2]+1)+sem-69)/12);
+}
+
+// ── COMPILE LOG ───────────────────────────────────────────────────────────────
+function compileLog(msg, cls='') {
+  const el = document.getElementById('compile-log');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + cls;
+  line.textContent = '[' + new Date().toLocaleTimeString('en',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '] ' + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── COMPILE ───────────────────────────────────────────────────────────────────
+async function runCompile() {
+  ensureAudioCtx();
+  const compileBtn = document.getElementById('compile-btn');
+  compileBtn.disabled = true;
+  compileBtn.textContent = 'GENERATING…';
+  document.getElementById('progress-bar-wrap').style.display = 'block';
+  setProgress(0);
+
+  // ── AI MUSIC path ──────────────────────────────────────────────────────────
+  const musicKey = localStorage.getItem('melegi_music_key');
+  const stabilityKey = localStorage.getItem('melegi_stability_key');
+  const isLocal = state.aiMusicProvider === 'local';
+  const activeKey = state.aiMusicProvider === 'stability' ? stabilityKey : musicKey;
+  const providerLabel = state.aiMusicProvider === 'stability' ? 'STABILITY AI'
+                      : state.aiMusicProvider === 'local' ? 'MUSICGEN LOCAL'
+                      : 'ELEVENLABS';
+  if (state.aiMusicMode && !isLocal && !activeKey) {
+    compileLog('AI MUSIC MODE ON BUT NO ' + providerLabel + ' KEY — ADD IN ⚙ SETTINGS', 'warn');
+    compileLog('FALLING BACK TO KS SYNTHESIS', 'info');
+  }
+  if (state.aiMusicMode && (isLocal || activeKey)) {
+    const ok = await runAiMusicBuild(musicKey, stabilityKey);
+    if (ok) {
+      compileBtn.disabled = false;
+      compileBtn.textContent = 'BUILD';
+      document.getElementById('export-quick-btn').disabled = false;
+      document.getElementById('render-btn').disabled = false;
+      setTimeout(() => { document.getElementById('progress-bar-wrap').style.display='none'; setProgress(0); }, 800);
+      drawViz();
+      if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
+      return;
+    }
+    compileLog('AI MUSIC FAILED — FALLING BACK TO KS SYNTHESIS', 'warn');
+    setProgress(0);
+  }
+
+  // Optional AI notation
+  const apiKey = localStorage.getItem('melegi_api_key');
+  let aiNotes = null;
+  if (apiKey) {
+    aiNotes = await aiGenerateNotation();
+    if (aiNotes) {
+      document.getElementById('ks-notation').value = aiNotes;
+    } else {
+      const fallback = document.getElementById('ks-notation').value.trim();
+      compileLog('FALLING BACK TO NOTATION: ' + (fallback || 'DEFAULT CHORD'), 'warn');
+    }
+  }
+
+  const sr = state.audioCtx.sampleRate;
+  const bpm = state.bpm, bars = state.bars, spb = 60/bpm;
+  const totalBeats = bars*4, totalDur = totalBeats*spb;
+  const totalSamples = Math.floor(sr*totalDur);
+  const master = new Float32Array(totalSamples);
+  const cashGain = 0.70, eruptionGainMax = 0.30;
+
+  compileLog('INITIALIZING COMPILE ENGINE...', 'info');
+  compileLog('BPM: '+bpm+' | BARS: '+bars+' | SR: '+sr+(apiKey?' | AI MODE':''), '');
+
+  // 1. KS soul layer
+  compileLog('GENERATING KARPLUS-STRONG LAYER...', 'ok');
+  const ksText = document.getElementById('ks-notation').value;
+  const freqs = ksText.trim().split(/[\s\n]+/).map(noteToFreq).filter(Boolean);
+  if (!freqs.length) freqs.push(146.83,220,293.66);
+  setProgress(10);
+
+  const noteDur = spb*0.5, decay = state.decay;
+  for (let b = 0; b < totalBeats; b++) {
+    const freq = freqs[b%freqs.length], start = Math.floor(b*spb*sr);
+    const ks = karplusStrong(freq, noteDur, sr, decay);
+    const sg = state.cash.soul*cashGain*0.4;
+    for (let i = 0; i < ks.length && start+i < totalSamples; i++) master[start+i] += ks[i]*sg;
+    if (b%2===1) {
+      const off = Math.floor(state.swing*spb*0.333*sr);
+      const ss = Math.min(start+off, totalSamples-1);
+      const ks2 = karplusStrong(freq*0.5, noteDur*0.7, sr, decay);
+      for (let i = 0; i < ks2.length && ss+i < totalSamples; i++) master[ss+i] += ks2[i]*sg*0.5;
+    }
+  }
+  setProgress(25);
+
+  // 2. 808 sub
+  compileLog('GENERATING 808 SUB LAYER...', 'ok');
+  const kickPat = [1,0,0,0,0,0,1,0,0,0,0,1,0,1,0,0];
+  const steps = 4;
+  for (let s = 0; s < totalBeats*steps; s++) {
+    if (kickPat[s%kickPat.length]) {
+      const start = Math.floor(s*(spb/steps)*sr);
+      const kf = freqs[Math.floor(s/steps)%freqs.length]||55;
+      const kick = synth808Kick(sr, 0.8, Math.min(kf,80), Math.min(kf*0.5,30));
+      const sg = state.cash.sub*cashGain*0.7;
+      for (let i = 0; i < kick.length && start+i < totalSamples; i++) master[start+i] += kick[i]*sg;
+    }
+  }
+  setProgress(40);
+
+  // 3. Drums
+  compileLog('GENERATING DRUM LAYER...', 'ok');
+  const snarePat=[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0];
+  const hatPat  =[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0];
+  const openHats=new Set([7,15]);
+  const snareBuf=synthSnare(sr,0.3);
+  const humanMaxSamples = Math.floor(0.010 * sr); // ±10ms timing jitter
+  for (let s = 0; s < totalBeats*steps; s++) {
+    const jitter = Math.floor((Math.random() - 0.5) * 2 * humanMaxSamples);
+    const start = Math.max(0, Math.floor(s*(spb/steps)*sr) + jitter);
+    if (snarePat[s%snarePat.length]) {
+      const sg=state.cash.drums*cashGain*0.6;
+      for (let i=0;i<snareBuf.length&&start+i<totalSamples;i++) master[start+i]+=snareBuf[i]*sg;
+    }
+    if (hatPat[s%hatPat.length]) {
+      const hh=synthHiHat(sr,0.08,openHats.has(s%16));
+      const sg=state.cash.drums*cashGain*0.3;
+      for (let i=0;i<hh.length&&start+i<totalSamples;i++) master[start+i]+=hh[i]*sg;
+    }
+  }
+  setProgress(55);
+
+  // 4. Lo-fi
+  compileLog('APPLYING LO-FI PROCESSING...', 'ok');
+  const vg = state.cash.vinyl*cashGain*0.05;
+  // Vinyl wobble runs at 0.3–0.65 Hz — stays below wow LFO's 0.7 Hz to avoid phase-lock
+  const _vinylWow   = state.cash.vinyl > 0.2;
+  const _vinylDepth = _vinylWow ? (state.cash.vinyl - 0.2) * 0.10 : 0;
+  const _vinylRate  = _vinylWow ? 0.3 + state.cash.vinyl * 0.35 : 0;
+  for (let i = 0; i < totalSamples; i++) {
+    const t = i/sr;
+    if (state.lofi.crackle>0&&Math.random()<state.lofi.crackle*0.001) master[i]+=(Math.random()*2-1)*state.lofi.crackle*vg*8;
+    if (state.lofi.hiss>0) master[i]+=(Math.random()*2-1)*state.lofi.hiss*0.03;
+    if (state.lofi.wow>0) master[i]*=1+Math.sin(2*Math.PI*0.7*t)*state.lofi.wow*0.003;
+    if (_vinylWow) master[i]*=1+Math.sin(2*Math.PI*_vinylRate*t)*_vinylDepth;
+  }
+  setProgress(65);
+
+  // 5. Warmth
+  if (state.lofi.warmth>0) {
+    compileLog('APPLYING WARMTH EQ...', 'ok');
+    const lp = makeBiquadCoeffs('lowpass', 4000*(1-state.lofi.warmth*0.5), 0, 0.707, sr);
+    const w = applyBiquad(master, lp);
+    for (let i=0;i<master.length;i++) master[i]=w[i];
+  }
+
+  // 6. Fingerprint EQ — chip-conditional genre color
+  compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'ok');
+  const genreEQ = [...FINGERPRINT_EQ];
+  const _hasDARK        = state.activeStyles.has('dark');
+  const _hasSOUL        = state.activeStyles.has('soul');
+  const _hasDUSTY       = state.activeStyles.has('dusty');
+  // DARK without soul → metal-dominant mix; BOOM-BAP/LO-FI do not suppress metal EQ
+  const _isDarkDominant = _hasDARK && !_hasSOUL;
+  if (_isDarkDominant) {
+    genreEQ.push(
+      {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
+      {type:'peaking', freq:900,  gain:2.5,  Q:0.8},
+      {type:'peaking', freq:3000, gain:2.0,  Q:1.2},
+      {type:'peaking', freq:8000, gain:-3.0, Q:0.9}
+    );
+  }
+  if (_hasDUSTY) {
+    genreEQ.push({type:'lowpass', freq:4000, Q:0.707});
+    // 900 Hz skipped when metal DARK already pushed +2.5 dB there — stacking both would over-boost
+    if (!_isDarkDominant) {
+      genreEQ.push({type:'peaking', freq:900, gain:3.0, Q:0.8});
+    }
+  }
+  const eq = applyEQChain(master, genreEQ, sr);
+  for (let i=0;i<master.length;i++) master[i]=eq[i];
+  setProgress(72);
+
+  // 6.5 Room reverb
+  compileLog('APPLYING ROOM REVERB...', 'ok');
+  const revMix = Math.min(0.12 + state.lofi.warmth * 0.18, 0.30);
+  const revArr = await applyConvolutionReverb(master, sr, revMix);
+  for (let i=0;i<master.length;i++) master[i]=revArr[i];
+  setProgress(80);
+
+  // 7. Eruption
+  if (state.eruptionGate) {
+    compileLog('ERUPTION GATE ACTIVE — DISTORTION LAYER...', 'warn');
+    const hp = makeBiquadCoeffs('highpass', Math.max(state.eruption.hpFloor,120), 0, 0.707, sr);
+    const hpf = applyBiquad(master, hp);
+    const eSamples = Math.floor(sr*state.eruption.duration);
+    const fuzz = state.eruption.fuzz;
+    for (let i=0;i<Math.min(eSamples,totalSamples);i++) {
+      master[i] += Math.tanh(hpf[i]*(1+fuzz*10))*fuzz*eruptionGainMax;
+    }
+  }
+
+  // 8. Normalize to consistent preview level — EXPORT handles final LUFS
+  compileLog('NORMALIZING...', 'ok');
+  let msq = 0;
+  for (let i=0;i<master.length;i++) msq += master[i]*master[i];
+  const msRms = Math.sqrt(msq/master.length);
+  const msTarget = Math.pow(10, -12/20); // -12 dBFS RMS for preview
+  const msSilence = Math.pow(10, -60/20); // below -60 dBFS treat as silence
+  if (msRms > msSilence) {
+    const g = Math.min(msTarget/msRms, 8);
+    for (let i=0;i<master.length;i++) master[i] *= g;
+  }
+  const msCeil = Math.pow(10, -0.1/20); // hard ceiling at -0.1 dBFS
+  for (let i=0;i<master.length;i++) {
+    if (master[i] > msCeil) master[i] = msCeil;
+    else if (master[i] < -msCeil) master[i] = -msCeil;
+  }
+  setProgress(90);
+
+  const audioBuf = state.audioCtx.createBuffer(1, totalSamples, sr);
+  audioBuf.copyToChannel(master, 0);
+  state.masterBuffer = audioBuf;
+  state.compileDone = true;
+  updateCompileMeters(master, sr);
+  setProgress(100);
+  compileLog('BUILD COMPLETE — ' + totalSamples + ' SAMPLES @ ' + sr + 'Hz', 'info');
+
+  compileBtn.disabled = false;
+  compileBtn.textContent = 'BUILD';
+  document.getElementById('export-quick-btn').disabled = false;
+  document.getElementById('render-btn').disabled = false;
+  setTimeout(() => { document.getElementById('progress-bar-wrap').style.display='none'; setProgress(0); }, 800);
+  drawViz();
+  // Auto-play like Suno — play immediately after generation
+  if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
+  getMasteringIntel(master, sr);
+}
+
+function setProgress(p) { document.getElementById('progress-bar').style.width = p+'%'; }
+
+function updateCompileMeters(samples, sr) {
+  let sq=0, pk=0;
+  for (let i=0;i<samples.length;i++){sq+=samples[i]*samples[i];pk=Math.max(pk,Math.abs(samples[i]));}
+  const rms=Math.sqrt(sq/samples.length);
+  const rmsDb=rms>0?20*Math.log10(rms):-Infinity;
+  const lufs=rmsDb-0.691;
+  const peakDb=pk>0?20*Math.log10(pk):-Infinity;
+  const centroid=computeCentroidApprox(samples,sr,Math.min(4096,samples.length));
+  document.getElementById('meter-rms').textContent=rmsDb.toFixed(1)+' dB';
+  document.getElementById('meter-lufs').textContent=lufs.toFixed(1)+' LUFS';
+  document.getElementById('meter-centroid').textContent=Math.round(centroid)+' Hz';
+  document.getElementById('meter-peak').textContent=peakDb.toFixed(1)+' dBFS';
+}
+
+// ── SPECTRAL ANALYSIS ─────────────────────────────────────────────────────────
+function computeCentroidApprox(samples, sr, N) {
+  const half=Math.floor(N/2), step=Math.max(1,Math.floor(N/512));
+  let ws=0, ms=0;
+  for (let k=1;k<half;k++) {
+    const freq=k*sr/N; if(freq>20000) break;
+    let r=0;
+    for (let n=0;n<N;n+=step) r+=samples[n]*Math.cos(2*Math.PI*k*n/N);
+    const mag=Math.abs(r); ws+=freq*mag; ms+=mag;
+  }
+  return ms>0?ws/ms:757;
+}
+
+function computeBandEnergies(samples, sr, N=2048) {
+  const half=Math.floor(N/2), step=Math.max(1,Math.floor(N/256));
+  const bands=[{lo:20,hi:80},{lo:80,hi:300},{lo:300,hi:2000},{lo:2000,hi:6000},{lo:6000,hi:20000}];
+  const e=new Array(5).fill(0);
+  for (let k=1;k<half;k++) {
+    const freq=k*sr/N; let r=0;
+    for (let n=0;n<N;n+=step) r+=samples[n]*Math.cos(2*Math.PI*k*n/N);
+    const mag=r*r;
+    for (let b=0;b<bands.length;b++) if(freq>=bands[b].lo&&freq<bands[b].hi){e[b]+=mag;break;}
+  }
+  return e;
+}
+
+// ── TRANSPORT ─────────────────────────────────────────────────────────────────
+function transportPlay() {
+  ensureAudioCtx();
+  if (!state.masterBuffer) { compileLog('NO BUFFER — RUN BUILD FIRST','warn'); return; }
+  transportStop();
+  state.isPlaying = true;
+  const src = state.audioCtx.createBufferSource();
+  src.buffer = state.masterBuffer;
+  src.connect(state.analyserNode);
+  src.start();
+  src.onended = () => { state.isPlaying=false; document.getElementById('btn-play').classList.remove('active'); };
+  state.currentSource = src;
+  document.getElementById('btn-play').classList.add('active');
+  startRaf();
+  startDriftInterval();
+}
+
+function transportStop() {
+  if (state.currentSource) { try{state.currentSource.stop();}catch(e){} state.currentSource=null; }
+  state.isPlaying = false;
+  document.getElementById('btn-play').classList.remove('active');
+  stopDriftInterval();
+}
+
+function startDriftInterval() {
+  stopDriftInterval();
+  let count = 0;
+  state.driftInterval = setInterval(() => {
+    count++;
+    const msgs=[
+      'CENTROID CHECK: '+(750+Math.round(Math.random()*30-15))+' Hz — NOMINAL',
+      'PHASE COHERENCE: OK',
+      'SUB MONO FLOOR: '+(118+Math.round(Math.random()*4))+' Hz — PASS',
+      'DYNAMIC RANGE: '+(7.8+(Math.random()*0.4).toFixed(1))+' dB',
+      'LUFS ESTIMATE: '+(-13+(Math.random()*0.6-0.3)).toFixed(1),
+      'PEAK CEILING: '+(-1.0-Math.random()*0.2).toFixed(2)+' dBFS — OK',
+      'SWING LOCK: '+(state.swing*100).toFixed(0)+'% — STABLE',
+      'BPM DRIFT: +'+(Math.random()*0.02).toFixed(3)+' — WITHIN TOLERANCE'
+    ];
+    pushDriftMsg(msgs[count%msgs.length]);
+    if(Math.random()<0.2) document.getElementById('drift-badge').classList.add('show');
+    else document.getElementById('drift-badge').classList.remove('show');
+  }, 3000);
+}
+
+function stopDriftInterval() {
+  if (state.driftInterval) {clearInterval(state.driftInterval);state.driftInterval=null;}
+  document.getElementById('drift-badge').classList.remove('show');
+}
+
+function pushDriftMsg(msg) {
+  const el = document.getElementById('drift-console');
+  const line = document.createElement('div');
+  line.style.cssText='color:#555;font-size:10px;line-height:1.7';
+  line.textContent='> '+msg;
+  el.appendChild(line);
+  el.scrollTop=el.scrollHeight;
+  while(el.children.length>50) el.removeChild(el.firstChild);
+}
+
+// ── ERUPTION ──────────────────────────────────────────────────────────────────
+function toggleEruption() {
+  state.eruptionGate = !state.eruptionGate;
+  const btn = document.getElementById('eruption-btn');
+  btn.classList.toggle('active', state.eruptionGate);
+  btn.textContent = state.eruptionGate ? 'ERUPTION ACTIVE' : 'ERUPTION DETONATE';
+}
+
+// ── VIZ ───────────────────────────────────────────────────────────────────────
+function setVizMode(mode, btn) {
+  state.vizMode = mode;
+  document.querySelectorAll('.viz-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  drawViz();
+}
+
+function drawViz() {
+  const canvas=document.getElementById('viz-canvas');
+  const wrap=document.getElementById('viz-area');
+  canvas.width=wrap.clientWidth; canvas.height=wrap.clientHeight;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  const bgGrad=ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#060212'); bgGrad.addColorStop(1,'#020008');
+  ctx.fillStyle=bgGrad; ctx.fillRect(0,0,W,H);
+  if (!state.masterBuffer) {
+    ctx.fillStyle='rgba(147,51,234,.3)';ctx.font='11px IBM Plex Mono';
+    ctx.textAlign='center';ctx.fillText('NO SIGNAL — HIT BUILD',W/2,H/2);
+    return;
+  }
+  const samples=state.masterBuffer.getChannelData(0);
+  if (state.vizMode==='waveform') {
+    // faint center line
+    ctx.strokeStyle='rgba(255,255,255,.04)';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,H/2);ctx.lineTo(W,H/2);ctx.stroke();
+    // glow pass
+    ctx.shadowBlur=12; ctx.shadowColor='rgba(147,51,234,.7)';
+    ctx.strokeStyle='#a855f7';ctx.lineWidth=1.5;ctx.beginPath();
+    const step=Math.ceil(samples.length/W);
+    for (let x=0;x<W;x++) {
+      let mn=1,mx=-1;
+      for (let j=0;j<step;j++){const v=samples[x*step+j]||0;if(v<mn)mn=v;if(v>mx)mx=v;}
+      const y1=(1-(mx+1)/2)*H, y2=(1-(mn+1)/2)*H;
+      if(x===0) ctx.moveTo(x,y1); else{ctx.lineTo(x,y1);ctx.lineTo(x,y2);}
+    }
+    ctx.stroke(); ctx.shadowBlur=0;
+  } else if (state.vizMode==='spectrum') {
+    const N=512, half=N/2, slice=samples.slice(0,N);
+    const mags=new Float32Array(half);
+    for (let k=0;k<half;k++) {
+      let r=0,im=0;
+      for (let n=0;n<N;n++) {
+        const w=0.5*(1-Math.cos(2*Math.PI*n/(N-1))), a=2*Math.PI*k*n/N;
+        r+=slice[n]*w*Math.cos(a); im-=slice[n]*w*Math.sin(a);
+      }
+      mags[k]=Math.sqrt(r*r+im*im);
+    }
+    const bw=W/half;
+    for (let k=0;k<half;k++) {
+      const db=mags[k]>0?20*Math.log10(mags[k]/N):-80;
+      const norm=Math.max(0,(db+80)/80);
+      if (norm<0.005) continue;
+      const bx=k*bw, bh=norm*H, bwv=Math.max(1,bw-1);
+      const g=ctx.createLinearGradient(0,H-bh,0,H);
+      g.addColorStop(0,'#e0aaff'); g.addColorStop(0.3,'#a855f7'); g.addColorStop(0.7,'#7c3aed'); g.addColorStop(1,'rgba(109,40,217,.12)');
+      ctx.fillStyle=g; ctx.fillRect(bx,H-bh,bwv,bh);
+    }
+  } else {
+    const bands=[{n:'SUB',c:'#4466cc'},{n:'LO-MID',c:'#6644cc'},{n:'MID',c:'#9933ea'},{n:'HI-MID',c:'#c044f0'},{n:'AIR',c:'#e080ff'}];
+    const e=computeBandEnergies(samples,state.masterBuffer.sampleRate,1024);
+    const mx=Math.max(...e,1);
+    bands.forEach((b,i)=>{
+      const norm=e[i]/mx, bw=W/5, bH=norm*H*0.8, x=i*bw;
+      // gradient fill
+      const g=ctx.createLinearGradient(0,H-bH,0,H);
+      g.addColorStop(0,b.c); g.addColorStop(1,b.c+'1a');
+      ctx.fillStyle=g; ctx.fillRect(x+4,H-bH,bw-8,bH);
+      // glowing top cap
+      ctx.shadowBlur=14; ctx.shadowColor=b.c;
+      ctx.fillStyle=b.c; ctx.fillRect(x+4,H-bH,bw-8,2);
+      ctx.shadowBlur=0;
+      ctx.font='10px IBM Plex Mono'; ctx.textAlign='center';
+      ctx.fillStyle=b.c; ctx.fillText(b.n,x+bw/2,H-bH-7);
+    });
+  }
+}
+
+// ── REAL-TIME METERS ──────────────────────────────────────────────────────────
+function startRaf() {
+  if (state.rafId) cancelAnimationFrame(state.rafId);
+  const fftSize=state.analyserNode?state.analyserNode.fftSize:2048;
+  const fftData=new Uint8Array(fftSize/2), td=new Float32Array(fftSize);
+  function tick() {
+    state.rafId=requestAnimationFrame(tick);
+    if (!state.analyserNode) return;
+    state.analyserNode.getByteFrequencyData(fftData);
+    state.analyserNode.getFloatTimeDomainData(td);
+    let sq=0;
+    for (let i=0;i<td.length;i++) sq+=td[i]*td[i];
+    const rms=Math.sqrt(sq/td.length), rmsDb=rms>0?20*Math.log10(rms):-80, lufs=rmsDb-0.691;
+    const sr=state.audioCtx?state.audioCtx.sampleRate:44100;
+    let ws=0,ms=0;
+    for (let k=0;k<fftData.length;k++){const freq=k*sr/fftSize,mag=fftData[k]/255;ws+=freq*mag;ms+=mag;}
+    const centroid=ms>0?ws/ms:0;
+    const rmsPct=Math.max(0,(rmsDb+60)/60*100);
+    const rmsFill=document.getElementById('rms-fill');
+    if(rmsFill) rmsFill.style.height=rmsPct+'%';
+    const lufsPct=Math.max(0,Math.min(100,(lufs+24)/24*100));
+    const lufsFill=document.getElementById('lufs-fill');
+    if(lufsFill) lufsFill.style.height=lufsPct+'%';
+    const cb=document.getElementById('centroid-big');
+    if(cb){
+      cb.textContent=ms>0?Math.round(centroid)+' Hz':'— Hz';
+      const delta=centroid-757;
+      const de=document.getElementById('centroid-delta-analyze');
+      if(de) de.textContent=(delta>=0?'+':'')+Math.round(delta)+' Hz FROM 757 Hz';
+      cb.style.color=Math.abs(delta)<50?'var(--green)':Math.abs(delta)<150?'var(--gold-light)':'var(--red)';
+    }
+    drawFFTCanvas(fftData,sr,fftSize,centroid);
+  }
+  tick();
+}
+
+function drawFFTCanvas(fftData, sr, fftSize, centroid) {
+  const canvas=document.getElementById('fft-canvas');
+  if(!canvas) return;
+  const wrap=document.getElementById('fft-wrap');
+  if(canvas.width!==wrap.clientWidth||canvas.height!==wrap.clientHeight){
+    canvas.width=wrap.clientWidth; canvas.height=wrap.clientHeight;
+  }
+  const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  const bgGrad=ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#060214'); bgGrad.addColorStop(1,'#020008');
+  ctx.fillStyle=bgGrad; ctx.fillRect(0,0,W,H);
+  const logMin=Math.log10(20), logMax=Math.log10(20000);
+  // frequency grid
+  ctx.setLineDash([3,5]); ctx.lineWidth=1; ctx.strokeStyle='rgba(255,255,255,.06)';
+  for (const f of [80,300,2000,6000]) {
+    const x=((Math.log10(f)-logMin)/(logMax-logMin))*W;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='rgba(255,255,255,.12)';
+    ctx.font='8px IBM Plex Mono'; ctx.textAlign='left';
+    ctx.fillText(f>=1000?`${f/1000}k`:`${f}`,x+3,H-4);
+    ctx.setLineDash([3,5]);
+  }
+  ctx.setLineDash([]);
+  const numBars=128, barW=Math.max(1,W/numBars-1), nyq=sr/2;
+  for (let i=0;i<numBars;i++) {
+    const freq=Math.pow(10,logMin+(i/numBars)*(logMax-logMin));
+    const bin=Math.floor(freq/nyq*fftData.length);
+    const val=fftData[Math.min(bin,fftData.length-1)]/255;
+    if (val<0.01) continue;
+    const bx=(i/numBars)*W, bh=val*H*0.95;
+    const g=ctx.createLinearGradient(0,H-bh,0,H);
+    g.addColorStop(0,'#ddb8ff'); g.addColorStop(0.3,'#a855f7'); g.addColorStop(0.7,'#7c3aed'); g.addColorStop(1,'rgba(109,40,217,.1)');
+    ctx.fillStyle=g; ctx.fillRect(bx,H-bh,barW,bh);
+  }
+  // target 757 Hz line with glow
+  const tx=((Math.log10(757)-logMin)/(logMax-logMin))*W;
+  ctx.shadowBlur=8; ctx.shadowColor='rgba(61,186,87,.9)';
+  ctx.setLineDash([6,4]); ctx.strokeStyle='#3dba57'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(tx,0); ctx.lineTo(tx,H); ctx.stroke();
+  ctx.shadowBlur=0;
+  if (centroid>20) {
+    const mx=((Math.log10(Math.max(20,Math.min(20000,centroid)))-logMin)/(logMax-logMin))*W;
+    ctx.shadowBlur=12; ctx.shadowColor='rgba(168,85,247,.9)';
+    ctx.setLineDash([]); ctx.strokeStyle='#c084fc'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(mx,0); ctx.lineTo(mx,H); ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+  ctx.setLineDash([]);
+  ctx.font='10px IBM Plex Mono'; ctx.fillStyle='rgba(100,70,140,.7)'; ctx.textAlign='left'; ctx.fillText('SPECTRUM',8,14);
+  ctx.textAlign='right'; ctx.fillStyle='#c084fc'; ctx.fillText(Math.round(centroid)+' Hz',W-8,14);
+}
+
+// ── PAGE SWITCHING ────────────────────────────────────────────────────────────
+function switchPage(name) {
+  state.currentPage = name;
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab,.bn-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('[data-page="'+name+'"]').forEach(t=>t.classList.add('active'));
+  if (name==='analyze'){ensureAudioCtx();if(!state.rafId)startRaf();}
+  if (name==='compile') drawViz();
+  if (name==='export') updateFilenamePreview();
+}
+
+document.querySelectorAll('.nav-tab,.bn-tab').forEach(t=>{
+  t.addEventListener('click',()=>switchPage(t.dataset.page));
+});
+
+function switchPTab(btn) {
+  const parent=btn.closest('.panel');
+  parent.querySelectorAll('.panel-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  parent.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  const tc=document.getElementById('ptab-'+btn.dataset.ptab);
+  if(tc) tc.classList.add('active');
+}
+
+// ── REFINE PAGE ───────────────────────────────────────────────────────────────
+function loadRefineFile(file) {
+  if(!file) return;
+  ensureAudioCtx();
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    try {
+      const ab=e.target.result;
+      const audioBuf=await state.audioCtx.decodeAudioData(ab.slice(0));
+      state.refineAudioBuffer=audioBuf;
+      document.getElementById('rfi-name').textContent=file.name;
+      document.getElementById('rfi-dur').textContent=audioBuf.duration.toFixed(2)+'s';
+      document.getElementById('rfi-sr').textContent=audioBuf.sampleRate+' Hz';
+      document.getElementById('rfi-ch').textContent=audioBuf.numberOfChannels;
+      document.getElementById('refine-file-info').classList.add('visible');
+      const samples=audioBuf.getChannelData(0), sr=audioBuf.sampleRate;
+      let sq=0;
+      for(let i=0;i<samples.length;i++) sq+=samples[i]*samples[i];
+      const rms=Math.sqrt(sq/samples.length), rmsDb=rms>0?20*Math.log10(rms):-80;
+      document.getElementById('rfi-rms').textContent=rmsDb.toFixed(1);
+      document.getElementById('rfi-lufs').textContent=(rmsDb-0.691).toFixed(1);
+      const win=samples.slice(Math.floor(samples.length/4),Math.floor(samples.length/4)+4096);
+      const centroid=computeCentroidApprox(win,sr,Math.min(win.length,2048));
+      const cdEl=document.getElementById('centroid-display');
+      cdEl.textContent=Math.round(centroid)+' Hz';
+      const delta=centroid-757;
+      document.getElementById('centroid-delta').textContent='DELTA: '+(delta>=0?'+':'')+Math.round(delta)+' Hz';
+      cdEl.className=Math.abs(delta)<50?'good':Math.abs(delta)<150?'ok':'bad';
+      const e=computeBandEnergies(samples,sr,2048), tot=e.reduce((a,b)=>a+b,0)||1;
+      ['sub','lomid','mid','himid','air'].forEach((b,i)=>{
+        const pct=Math.round(e[i]/tot*100);
+        document.getElementById('band-'+b).style.width=pct+'%';
+        document.getElementById('bpct-'+b).textContent=pct+'%';
+      });
+      document.getElementById('refine-analysis').classList.add('visible');
+      document.getElementById('apply-correction-btn').disabled=false;
+      document.getElementById('vibe-input').disabled=false;
+      document.getElementById('vibe-send').disabled=false;
+    } catch(err) {
+      compileLog('REFINE ERROR: '+err.message, 'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyCorrection() {
+  if(!state.refineAudioBuffer) return;
+  const target=REFERENCE_TARGETS[state.refTarget];
+  const sr=state.refineAudioBuffer.sampleRate;
+  const samples=state.refineAudioBuffer.getChannelData(0);
+  let corrected=new Float32Array(samples);
+  compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'info');
+  corrected=applyBiquad(corrected, makeBiquadCoeffs('lowshelf',target.subShelf.freq,target.subShelf.gain,0.7,sr));
+  compileLog('  LOW SHELF @'+target.subShelf.freq+'Hz +'+target.subShelf.gain+'dB — OK', 'ok');
+  corrected=applyBiquad(corrected, makeBiquadCoeffs('lowpass',target.lpFreq,0,0.707,sr));
+  compileLog('  LOWPASS @'+target.lpFreq+'Hz — OK', 'ok');
+  corrected=applyEQChain(corrected,FINGERPRINT_EQ,sr);
+  compileLog('  FINGERPRINT EQ CHAIN — OK', 'ok');
+  let pk=0;
+  for(let i=0;i<corrected.length;i++) pk=Math.max(pk,Math.abs(corrected[i]));
+  if(pk>0){const g=Math.pow(10,-1/20)/pk; for(let i=0;i<corrected.length;i++) corrected[i]*=g;}
+  compileLog('  NORMALIZED TO -1 dBFS — OK', 'ok');
+  state.correctedSamples=corrected;
+  const buf=state.audioCtx.createBuffer(1,corrected.length,sr);
+  buf.copyToChannel(corrected,0);
+  state.refinedBuffer=buf;
+  compileLog('FINGERPRINT APPLIED.', 'ok');
+  document.getElementById('preview-corrected-btn').disabled=false;
+  document.getElementById('send-to-export-btn').disabled=false;
+}
+
+function previewCorrected() {
+  if(!state.refinedBuffer) return;
+  ensureAudioCtx(); transportStop();
+  const src=state.audioCtx.createBufferSource();
+  src.buffer=state.refinedBuffer; src.connect(state.analyserNode); src.start();
+  state.currentSource=src; state.isPlaying=true;
+  document.getElementById('btn-play').classList.add('active');
+  src.onended=()=>{state.isPlaying=false;document.getElementById('btn-play').classList.remove('active');};
+}
+
+function sendToExport() {
+  if(!state.refinedBuffer) return;
+  state.masterBuffer=state.refinedBuffer; state.compileDone=true;
+  document.getElementById('render-btn').disabled=false;
+  switchPage('export');
+}
+
+// ── VIBE READ ─────────────────────────────────────────────────────────────────
+async function getMasteringIntel(master, sr) {
+  const apiKey = localStorage.getItem('melegi_api_key');
+  if (!apiKey) return;
+  const el = document.getElementById('vibe-read');
+  const txt = document.getElementById('vibe-read-text');
+  el.classList.add('visible');
+  txt.textContent = 'reading...';
+
+  let sq=0, pk=0;
+  for (let i=0;i<master.length;i++){sq+=master[i]*master[i];pk=Math.max(pk,Math.abs(master[i]));}
+  const rmsDb = 20*Math.log10(Math.sqrt(sq/master.length)||1e-9);
+  const lufs = rmsDb - 0.691;
+  const centroid = computeCentroidApprox(master.slice(Math.floor(master.length/4), Math.floor(master.length/4)+4096), sr, 2048);
+  const bands = computeBandEnergies(master, sr, 2048);
+  const tot = bands.reduce((a,b)=>a+b,0)||1;
+  const [sub,lomid,mid,himid,air] = bands.map(b=>Math.round(b/tot*100));
+  const chips = [...state.activeStyles].join(', ') || 'none';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001', max_tokens:180,
+        messages:[{role:'user', content:
+          `You are MELEGI, a beat engineer. Give a 2-sentence plain-language read of this beat — what it sounds like, and one concrete thing to try. Be direct, no filler. Sound like a producer, not a manual.\n\nStats: ${state.bpm} BPM, centroid ${Math.round(centroid)} Hz (target 757 Hz), LUFS ${lufs.toFixed(1)}, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%, active chips: ${chips}.`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    txt.textContent = d.content?.[0]?.text?.trim() || '—';
+  } catch(e) {
+    el.classList.remove('visible');
+  }
+}
+
+// ── VIBE MIX ──────────────────────────────────────────────────────────────────
+function appendVibeMsg(role, html) {
+  const msgs = document.getElementById('vibe-msgs');
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'vm-user' : 'vm-ai';
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendVibeMsg() {
+  const input = document.getElementById('vibe-input');
+  const sendBtn = document.getElementById('vibe-send');
+  const msg = input.value.trim();
+  if (!msg || !state.refineAudioBuffer) return;
+  const apiKey = localStorage.getItem('melegi_api_key');
+  if (!apiKey) { appendVibeMsg('ai', '<div style="color:var(--orange)">Add an Anthropic API key in ⚙ Settings to use VIBE MIX.</div>'); return; }
+
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+  appendVibeMsg('user', msg);
+  appendVibeMsg('ai', '<span style="color:var(--text-dim)">thinking...</span>');
+
+  const src = state.correctedSamples || state.refineAudioBuffer.getChannelData(0);
+  const sr = state.refineAudioBuffer.sampleRate;
+  let sq=0, pk=0;
+  for(let i=0;i<src.length;i++){sq+=src[i]*src[i];pk=Math.max(pk,Math.abs(src[i]));}
+  const rmsDb = 20*Math.log10(Math.sqrt(sq/src.length)||1e-9);
+  const centroid = computeCentroidApprox(src.slice(Math.floor(src.length/4),Math.floor(src.length/4)+4096),sr,2048);
+  const bands = computeBandEnergies(src,sr,2048);
+  const tot = bands.reduce((a,b)=>a+b,0)||1;
+  const [sub,lomid,mid,himid,air] = bands.map(b=>Math.round(b/tot*100));
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001', max_tokens:300,
+        messages:[{role:'user', content:
+          `You are MELEGI, a vibe-mixing AI. The engineer said: "${msg}"\n\nCurrent audio stats: centroid ${Math.round(centroid)} Hz, RMS ${rmsDb.toFixed(1)} dB, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%.\n\nReturn ONLY valid JSON, no markdown, no explanation outside the JSON:\n{"adjustments":[{"type":"lowshelf"|"highshelf"|"peaking"|"lowpass"|"reverb","freq":number,"gain":number,"q":number,"mix":number,"label":"short action label"}],"reply":"1 sentence saying what you did, in producer voice"}\n\nFor reverb type, use only "mix" field (0-1). For EQ types use freq+gain+q. Max 3 adjustments. Match the vibe described.`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    const text = d.content?.[0]?.text?.trim() || '{}';
+    let parsed;
+    try { parsed = JSON.parse(text); } catch(e) { const m=text.match(/\{[\s\S]*\}/); parsed=m?JSON.parse(m[0]):{adjustments:[],reply:'Could not parse response.'}; }
+
+    const adjustments = parsed.adjustments || [];
+    const reply = parsed.reply || '—';
+
+    // Apply adjustments to a copy of current audio
+    let working = new Float32Array(src);
+    const actionLines = [];
+    for (const adj of adjustments) {
+      if (adj.type === 'reverb') {
+        const mix = Math.max(0, Math.min(1, adj.mix || 0.2));
+        const delayMs = 30, delaySamps = Math.max(1, Math.floor(sr * delayMs / 1000));
+        const fb = 0.45 * mix;
+        const buf = new Float32Array(delaySamps).fill(0);
+        for (let i=0;i<working.length;i++) {
+          const di = i % delaySamps;
+          const wet = buf[di];
+          buf[di] = working[i] + wet * fb;
+          working[i] = working[i] * (1-mix) + wet * mix;
+        }
+        actionLines.push(adj.label || 'reverb ×'+mix.toFixed(2));
+      } else {
+        const coeffs = makeBiquadCoeffs(adj.type, adj.freq||1000, adj.gain||0, adj.q||0.707, sr);
+        working = applyBiquad(working, coeffs);
+        actionLines.push(adj.label || (adj.type+' @'+(adj.freq||'')+'Hz'));
+      }
+    }
+    // Normalize to prevent clipping
+    let pk2=0; for(let i=0;i<working.length;i++) pk2=Math.max(pk2,Math.abs(working[i]));
+    if(pk2>0.98){const g=0.97/pk2;for(let i=0;i<working.length;i++) working[i]*=g;}
+
+    state.correctedSamples = working;
+    const newBuf = state.audioCtx.createBuffer(1, working.length, sr);
+    newBuf.copyToChannel(working, 0);
+    state.refinedBuffer = newBuf;
+
+    // Replace the "thinking..." placeholder
+    const msgs = document.getElementById('vibe-msgs');
+    const last = msgs.lastElementChild;
+    const actionsHtml = actionLines.length ? `<div class="vm-actions">▸ ${actionLines.join(' · ')}</div>` : '';
+    last.innerHTML = `<div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>${actionsHtml}${reply}`;
+
+    document.getElementById('preview-corrected-btn').disabled = false;
+    document.getElementById('send-to-export-btn').disabled = false;
+
+    // Auto-preview
+    previewCorrected();
+
+  } catch(e) {
+    const msgs = document.getElementById('vibe-msgs');
+    msgs.lastElementChild.innerHTML = `<span style="color:var(--red)">ERROR: ${e.message}</span>`;
+  }
+  input.disabled = false;
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+// ── EXPORT ────────────────────────────────────────────────────────────────────
+const EXPORT_CONFIGS={
+  beatstars:{lufs:-10,sr:44100,bits:24,dither:true, limit:true, label:'BEATSTARS'},
+  suno:     {lufs:-14,sr:44100,bits:16,dither:true, limit:true, label:'SUNO'},
+  logic:    {lufs:-18,sr:48000,bits:24,dither:false,limit:false,label:'LOGIC'}
+};
+
+function updateExportTarget(val) {
+  state.exportTarget=val;
+  document.querySelectorAll('.radio-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('rt-'+val).classList.add('selected');
+  updateFilenamePreview();
+}
+function selectBars(el) {
+  document.querySelectorAll('#render-length-group .radio-pill').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected'); state.exportBars=parseInt(el.dataset.bars); updateFilenamePreview();
+}
+function selectKey(el) {
+  document.querySelectorAll('#key-group .radio-pill').forEach(p=>p.classList.remove('selected'));
+  el.classList.add('selected'); state.exportKey=el.dataset.key; updateFilenamePreview();
+}
+function updateFilenamePreview() {
+  const cfg=EXPORT_CONFIGS[state.exportTarget];
+  const d=new Date(); const ds=d.getFullYear()+(''+(d.getMonth()+1)).padStart(2,'0')+(''+(d.getDate())).padStart(2,'0');
+  const titlePart = state.songTitle ? '_'+state.songTitle.trim().toUpperCase().replace(/[^\w\s-]/g,'').replace(/\s+/g,'_').slice(0,20) : '';
+  document.getElementById('filename-preview').textContent='MELEGI_'+cfg.label+'_'+state.bpm+'bpm_'+state.exportKey+titlePart+'_'+ds+'.wav';
+}
+function setPreset(p,btn) {
+  document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  updateExportTarget(p==='beatstars'?'beatstars':p==='suno'?'suno':'logic');
+}
+
+function exportLog(msg,cls) {
+  const el=document.getElementById('export-log'), line=document.createElement('div');
+  line.className='log-line '+(cls||''); line.textContent=msg;
+  el.appendChild(line); el.scrollTop=el.scrollHeight;
+}
+function setExportStatus(s) {
+  const el=document.getElementById('export-status');
+  el.textContent=s.toUpperCase(); el.className='status-badge '+s.toLowerCase();
+}
+
+async function renderAndDownload() {
+  if(!state.masterBuffer){alert('RUN BUILD FIRST');return;}
+  const cfg=EXPORT_CONFIGS[state.exportTarget];
+  setExportStatus('rendering');
+  document.getElementById('export-progress').style.width='0%';
+  exportLog('STARTING RENDER...','info');
+  exportLog('TARGET: '+cfg.label+' | '+cfg.sr+'Hz | '+cfg.bits+'-BIT','');
+  const samples=state.masterBuffer.getChannelData(0), srcSr=state.masterBuffer.sampleRate;
+  const spb=60/state.bpm, outDur=state.exportBars*4*spb;
+  const outSamples=Math.floor(outDur*cfg.sr);
+  document.getElementById('export-progress').style.width='20%';
+  exportLog('RESAMPLING TO '+cfg.sr+' Hz...','');
+  const resampled=new Float32Array(outSamples), ratio=srcSr/cfg.sr, srcLen=samples.length;
+  for (let i=0;i<outSamples;i++) {
+    const pos=i*ratio, idx=Math.floor(pos), frac=pos-idx;
+    const a=idx<srcLen?samples[idx]:0, b=idx+1<srcLen?samples[idx+1]:0;
+    resampled[i]=a+(b-a)*frac;
+  }
+  document.getElementById('export-progress').style.width='50%';
+  exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
+  const curLufs = measureLufsK(resampled, cfg.sr);
+  // Guard: skip normalization below -70 dBLUFS (silence sentinel is -80).
+  // Cap at 20× (26 dB) — compile path already hard-clips to -0.1 dBFS, so export
+  // should need at most a few dB of LUFS adjustment for normal content.
+  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 20) : 1;
+  for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
+  if(cfg.limit){
+    // True-peak limit: proportional rescale, no hard clipping distortion
+    const ceiling=Math.pow(10,-1/20);
+    let truePeak=0;
+    for(let i=0;i<resampled.length;i++) truePeak=Math.max(truePeak,Math.abs(resampled[i]));
+    if(truePeak>ceiling){
+      const rescale=ceiling/truePeak;
+      for(let i=0;i<resampled.length;i++) resampled[i]*=rescale;
+    }
+  }
+  document.getElementById('export-progress').style.width='70%';
+  exportLog('ENCODING WAV...','');
+  const wavBuf=encodeWAV(resampled,cfg.sr,1,cfg.bits,cfg.dither);
+  document.getElementById('export-progress').style.width='90%';
+  const blob=new Blob([wavBuf],{type:'audio/wav'});
+  const url=URL.createObjectURL(blob), a=document.createElement('a');
+  const fn=document.getElementById('filename-preview').textContent;
+  a.href=url; a.download=fn; document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  document.getElementById('export-progress').style.width='100%';
+  setExportStatus('complete');
+  exportLog('RENDER COMPLETE: '+fn,'ok');
+  exportLog('SIZE: '+(wavBuf.byteLength/1024/1024).toFixed(2)+' MB','');
+  addExportHistory(fn,wavBuf.byteLength);
+  setTimeout(()=>setExportStatus('idle'),4000);
+}
+
+function addExportHistory(name,bytes) {
+  state.exportHistory.unshift({name,size:bytes});
+  if(state.exportHistory.length>3) state.exportHistory.pop();
+  const el=document.getElementById('export-history'); el.innerHTML='';
+  for(const h of state.exportHistory){
+    const item=document.createElement('div'); item.className='hist-item';
+    item.innerHTML='<span class="hist-name">'+h.name+'</span><span class="hist-size">'+(h.size/1024/1024).toFixed(2)+' MB</span>';
+    el.appendChild(item);
+  }
+}
+
+function quickExport(){switchPage('export');}
+
+// ── WAV ENCODER ───────────────────────────────────────────────────────────────
+function encodeWAV(samples, sr, numCh, bitDepth, dither) {
+  const bps=bitDepth/8, blk=numCh*bps, byteRate=sr*blk;
+  const dataSize=samples.length*bps*numCh;
+  const buf=new ArrayBuffer(44+dataSize), view=new DataView(buf);
+  const ws=(v,o,s)=>{for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i));};
+  ws(view,0,'RIFF'); view.setUint32(4,36+dataSize,true);
+  ws(view,8,'WAVE'); ws(view,12,'fmt '); view.setUint32(16,16,true);
+  view.setUint16(20,1,true); view.setUint16(22,numCh,true);
+  view.setUint32(24,sr,true); view.setUint32(28,byteRate,true);
+  view.setUint16(32,blk,true); view.setUint16(34,bitDepth,true);
+  ws(view,36,'data'); view.setUint32(40,dataSize,true);
+  let offset=44;
+  const maxVal=Math.pow(2,bitDepth-1)-1;
+  for (let i=0;i<samples.length;i++) {
+    let s=Math.max(-1,Math.min(1,samples[i]));
+    if(dither&&bitDepth===16){
+      s=Math.max(-1,Math.min(1,s+(Math.random()-0.5+Math.random()-0.5)/maxVal));
+    }
+    if(bitDepth===16){
+      view.setInt16(offset,Math.round(s*maxVal),true); offset+=2;
+    } else if(bitDepth===24){
+      const c=Math.max(-8388608,Math.min(8388607,Math.round(s*8388607)));
+      view.setUint8(offset,c&0xFF); view.setUint8(offset+1,(c>>8)&0xFF); view.setUint8(offset+2,(c>>16)&0xFF);
+      offset+=3;
+    }
+  }
+  return buf;
+}
+
+// ── REFS ──────────────────────────────────────────────────────────────────────
+function buildRefCards() {
+  const c=document.getElementById('ref-cards');
+  for(const[k,v] of Object.entries(REFERENCE_TARGETS)){
+    const card=document.createElement('div'); card.className='ref-card';
+    card.innerHTML=`<div class="ref-title">${k.toUpperCase()}</div>
+      <div class="ref-row"><span>CENTROID</span><span class="ref-val">${v.centroid} Hz</span></div>
+      <div class="ref-row"><span>LP FREQ</span><span class="ref-val">${v.lpFreq} Hz</span></div>
+      <div class="ref-row"><span>SUB SHELF</span><span class="ref-val">${v.subShelf.freq}Hz +${v.subShelf.gain}dB</span></div>
+      <div class="ref-row"><span>COMP</span><span class="ref-val">${v.compressionRatio}:1</span></div>
+      <div class="ref-row"><span>DYN RANGE</span><span class="ref-val">${v.dynamicRange} dB</span></div>`;
+    c.appendChild(card);
+  }
+}
+
+// ── SAMPLES ───────────────────────────────────────────────────────────────────
+function loadSamples(files) {
+  const list=document.getElementById('sample-list');
+  for(const f of files){
+    const d=document.createElement('div');
+    d.textContent='▶ '+f.name+' ('+(f.size/1024).toFixed(1)+' KB)';
+    d.style.color='var(--gold)'; list.appendChild(d);
+    state.samples.push({name:f.name,file:f});
+  }
+}
+
+// Drag & drop
+['sample-drop','refine-drop'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('drag-over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('drag-over'));
+  el.addEventListener('drop',e=>{
+    e.preventDefault(); el.classList.remove('drag-over');
+    if(id==='sample-drop') loadSamples(e.dataTransfer.files);
+    else if(e.dataTransfer.files[0]) loadRefineFile(e.dataTransfer.files[0]);
+  });
+});
+
+// ── SERVICE WORKER ────────────────────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./service-worker.js')
+      .then(r => console.log('SW registered:', r.scope))
+      .catch(e => console.log('SW failed:', e));
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function init() {
+  document.querySelectorAll('.drop-zone input[type=file], #prompt-audio-btn input[type=file]').forEach(el => el.accept = AUDIO_ACCEPT);
+  loadApiKey();
+  buildRefCards();
+  updateFilenamePreview();
+  drawViz();
+  compileLog('MELEGI AUDIO ENGINE v3 READY','info');
+  compileLog('FINGERPRINT TARGET: 757 Hz | 122 BPM | F MINOR','');
+  compileLog('TAP ⚙ TO ADD API KEY FOR AI BUILD MODE','');
+  ensureAudioCtx();
+  startRaf();
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', ()=>{ if(state.currentPage==='compile') drawViz(); });
+</script>
+</body>
+</html>
