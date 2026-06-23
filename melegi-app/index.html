@@ -1499,9 +1499,9 @@ function karplusStrong(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) 
   const total = Math.floor(dur * sr);
   const buf = new Float32Array(total);
   const delay = new Float32Array(N);
-  const pickThresh = Math.round(N * (1 - pickPos * 0.7));
+  // Fill entire buffer — no zero gap. Taper far-from-pick positions for pick position character.
   for (let i = 0; i < N; i++) {
-    const gain = i < pickThresh ? 1.0 : (1 - pickPos * 0.7);
+    const gain = i < Math.round(N * (1 - pickPos * 0.7)) ? 1.0 : (1 - pickPos * 0.7);
     delay[i] = (Math.random() * 2 - 1) * gain;
   }
   const damp = 0.5 - brightness * 0.15;
