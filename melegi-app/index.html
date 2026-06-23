@@ -285,6 +285,14 @@ input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 
 .lufs-ref-label{position:absolute;right:2px;font-size:8px;color:var(--text-dim)}
 #centroid-big{font-size:34px;font-weight:700;color:var(--gold-light);text-align:center;margin:auto;text-shadow:0 0 16px rgba(147,51,234,.55),0 0 32px rgba(147,51,234,.2)}
 #drift-console{flex:1;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.7;border-radius:2px}
+#genre-result{margin-top:8px;display:none;flex-direction:column;gap:6px}
+#genre-name-display{font-size:13px;font-weight:700;color:var(--gold-light);letter-spacing:.5px;line-height:1.4}
+#genre-influences-display{font-size:10px;color:var(--text-dim);letter-spacing:.5px}
+#genre-why-display{font-size:10px;color:var(--text-dim);line-height:1.6;padding:6px 0;border-top:1px solid var(--border)}
+#genre-params-display{font-size:9px;color:rgba(147,51,234,.7);letter-spacing:.5px}
+#genre-status{font-size:10px;color:var(--text-dim);min-height:16px}
+#reproduce-btn{display:none;margin-top:4px}
+.analyze-col.genre-col{min-width:200px}
 
 /* ── EXPORT PAGE ──────────────────────────────────────────────────── */
 #page-export{flex-direction:row}
@@ -783,9 +791,20 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <div id="centroid-big">— Hz</div>
       <div id="centroid-delta-analyze" style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:8px">DELTA FROM 757 Hz</div>
     </div>
-    <div class="analyze-col">
+    <div class="analyze-col genre-col">
       <div class="section-label">DRIFT CONSOLE</div>
       <div id="drift-console"></div>
+      <div class="sep" style="margin-top:8px"></div>
+      <div class="section-label">GENRE DECODER</div>
+      <div id="genre-status"></div>
+      <button class="btn primary" id="decode-genre-btn" onclick="decodeGenre()" style="margin-top:4px">⬡ DECODE GENRE</button>
+      <div id="genre-result">
+        <div id="genre-name-display"></div>
+        <div id="genre-influences-display"></div>
+        <div id="genre-why-display"></div>
+        <div id="genre-params-display"></div>
+        <button class="btn" id="reproduce-btn" onclick="applyReproducedGenre()">REPRODUCE THIS →</button>
+      </div>
     </div>
   </div>
 </div>
@@ -1867,6 +1886,339 @@ function computeBandEnergies(samples, sr, N=2048) {
     for (let b=0;b<bands.length;b++) if(freq>=bands[b].lo&&freq<bands[b].hi){e[b]+=mag;break;}
   }
   return e;
+}
+
+// ── GENRE DECODER — DSP ───────────────────────────────────────────────────────
+function detectBPM(samples, sr) {
+  // Energy envelope in 10ms hops
+  const hop = Math.round(sr * 0.01);
+  const win = Math.round(sr * 0.05);
+  const numFrames = Math.floor((samples.length - win) / hop);
+  const env = new Float32Array(numFrames);
+  for (let f = 0; f < numFrames; f++) {
+    let e = 0;
+    const s = f * hop;
+    for (let i = s; i < s + win; i++) e += samples[i] * samples[i];
+    env[f] = e;
+  }
+  // Half-wave rectified flux (onset strength)
+  const flux = new Float32Array(numFrames);
+  for (let f = 1; f < numFrames; f++) flux[f] = Math.max(0, env[f] - env[f - 1]);
+
+  // Autocorrelation over tempo-relevant lags (60–200 BPM)
+  const minLag = Math.round(sr * 60 / 200 / hop);
+  const maxLag = Math.round(sr * 60 / 60  / hop);
+  let bestBPM = 120, bestCorr = -Infinity;
+  for (let lag = minLag; lag <= maxLag; lag++) {
+    let c = 0;
+    for (let i = 0; i < numFrames - lag; i++) c += flux[i] * flux[i + lag];
+    const bpm = Math.round(sr * 60 / hop / lag);
+    if (c > bestCorr) { bestCorr = c; bestBPM = bpm; }
+  }
+  // Round to nearest 2 BPM for cleanliness
+  return Math.round(bestBPM / 2) * 2;
+}
+
+function detectKey(samples, sr) {
+  // Goertzel: O(N) power estimate at a target frequency
+  function goertzel(buf, freq, rate) {
+    const w = 2 * Math.PI * freq / rate;
+    const coeff = 2 * Math.cos(w);
+    let s1 = 0, s2 = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const s0 = buf[i] + coeff * s1 - s2;
+      s2 = s1; s1 = s0;
+    }
+    return s1 * s1 + s2 * s2 - s1 * s2 * coeff;
+  }
+
+  // Build chromagram: 12 pitch classes × 4 octaves (C2–B5)
+  const chroma = new Float32Array(12);
+  const chunk = samples.slice(Math.floor(samples.length * 0.1),
+                              Math.min(samples.length, Math.floor(samples.length * 0.1) + sr * 8));
+  const C2 = 65.41;
+  for (let octave = 0; octave < 4; octave++) {
+    for (let pc = 0; pc < 12; pc++) {
+      const freq = C2 * Math.pow(2, octave + pc / 12);
+      if (freq > sr / 2.5) continue;
+      chroma[pc] += goertzel(chunk, freq, sr);
+    }
+  }
+
+  // Normalise
+  const mx = Math.max(...chroma) || 1;
+  for (let i = 0; i < 12; i++) chroma[i] /= mx;
+
+  // Krumhansl-Schmuckler profiles
+  const KS_MAJ = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+  const KS_MIN = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+  const NOTES  = ['C','C#','D','Eb','E','F','F#','G','Ab','A','Bb','B'];
+
+  let bestKey = 'F minor', bestCorr = -Infinity;
+  for (let root = 0; root < 12; root++) {
+    let majC = 0, minC = 0;
+    for (let i = 0; i < 12; i++) {
+      majC += chroma[(i + root) % 12] * KS_MAJ[i];
+      minC += chroma[(i + root) % 12] * KS_MIN[i];
+    }
+    if (majC > bestCorr) { bestCorr = majC; bestKey = NOTES[root] + ' major'; }
+    if (minC > bestCorr) { bestCorr = minC; bestKey = NOTES[root] + ' minor'; }
+  }
+  return bestKey;
+}
+
+function computeSpectralFlux(samples, sr) {
+  const N = 1024;
+  const hop = N / 2;
+  const numFrames = Math.floor((samples.length - N) / hop);
+  if (numFrames < 2) return 0;
+  let totalFlux = 0;
+  let prevMags = new Float32Array(N / 2);
+  for (let f = 0; f < numFrames; f++) {
+    const frame = samples.slice(f * hop, f * hop + N);
+    // Compute magnitude spectrum (simplified DFT via existing pattern)
+    const mags = new Float32Array(N / 2);
+    for (let k = 1; k < N / 2; k++) {
+      let re = 0, im = 0;
+      // Sub-sample for speed (every 4th sample, approximate)
+      for (let n = 0; n < N; n += 4) {
+        const a = 2 * Math.PI * k * n / N;
+        re += frame[n] * Math.cos(a);
+        im -= frame[n] * Math.sin(a);
+      }
+      mags[k] = Math.sqrt(re * re + im * im);
+    }
+    let flux = 0;
+    for (let k = 0; k < N / 2; k++) flux += Math.max(0, mags[k] - prevMags[k]);
+    totalFlux += flux;
+    prevMags = mags;
+  }
+  return totalFlux / numFrames;
+}
+
+function computeCrestFactor(samples) {
+  let sq = 0, pk = 0;
+  for (let i = 0; i < samples.length; i++) {
+    sq += samples[i] * samples[i];
+    pk = Math.max(pk, Math.abs(samples[i]));
+  }
+  const rms = Math.sqrt(sq / samples.length) || 1e-9;
+  return 20 * Math.log10(pk / rms); // dB — higher = punchier transients
+}
+
+function computeZCR(samples) {
+  let crossings = 0;
+  for (let i = 1; i < samples.length; i++) {
+    if ((samples[i] >= 0) !== (samples[i - 1] >= 0)) crossings++;
+  }
+  return crossings / samples.length; // normalised
+}
+
+function extractAudioFeatures(samples, sr) {
+  const bands = computeBandEnergies(samples, sr, 2048);
+  const tot   = bands.reduce((a, b) => a + b, 0) || 1;
+  const [sub, lomid, mid, himid, air] = bands.map(b => Math.round(b / tot * 100));
+  let sq = 0, pk = 0;
+  for (let i = 0; i < samples.length; i++) { sq += samples[i]*samples[i]; pk = Math.max(pk, Math.abs(samples[i])); }
+  const rms  = Math.sqrt(sq / samples.length) || 1e-9;
+  const rmsDb = 20 * Math.log10(rms);
+  const lufs  = rmsDb - 0.691;
+  return {
+    bpm:        detectBPM(samples, sr),
+    key:        detectKey(samples, sr),
+    centroid:   Math.round(computeCentroidApprox(samples.slice(0, Math.min(samples.length, sr * 4)), sr, 2048)),
+    bands:      { sub, lomid, mid, himid, air },
+    rmsDb:      rmsDb.toFixed(1),
+    lufs:       lufs.toFixed(1),
+    crest:      computeCrestFactor(samples).toFixed(1),
+    zcr:        (computeZCR(samples) * 1000).toFixed(2), // per 1000 samples
+  };
+}
+
+// ── GENRE DECODER — AI ────────────────────────────────────────────────────────
+async function decodeGenre() {
+  const apiKey = localStorage.getItem('melegi_api_key');
+  const buf = state.masterBuffer || state.refineAudioBuffer;
+  if (!buf) {
+    alert('BUILD a beat first, or load a file in REFINE, then come back to ANALYZE.');
+    return;
+  }
+
+  const btn = document.getElementById('decode-genre-btn');
+  const panel = document.getElementById('genre-result');
+  const statusEl = document.getElementById('genre-status');
+  btn.disabled = true;
+  panel.style.display = 'block';
+  statusEl.innerHTML = '<span class="vibe-read-loading">analyzing…</span>';
+  document.getElementById('genre-name-display').textContent = '';
+  document.getElementById('genre-influences-display').textContent = '';
+  document.getElementById('genre-why-display').textContent = '';
+  document.getElementById('genre-params-display').textContent = '';
+  document.getElementById('reproduce-btn').style.display = 'none';
+
+  const samples = buf.getChannelData(0);
+  const sr = buf.sampleRate;
+
+  let features;
+  try {
+    statusEl.textContent = 'extracting features…';
+    features = extractAudioFeatures(samples, sr);
+    statusEl.textContent = `BPM: ${features.bpm} · Key: ${features.key} · calling Claude…`;
+  } catch(e) {
+    statusEl.textContent = 'Feature extraction failed: ' + e.message;
+    btn.disabled = false;
+    return;
+  }
+
+  if (!apiKey) {
+    // Show features without Claude interpretation
+    document.getElementById('genre-name-display').textContent = 'Add API key in ⚙ for genre interpretation';
+    document.getElementById('genre-influences-display').textContent =
+      `BPM: ${features.bpm} · Key: ${features.key} · Centroid: ${features.centroid} Hz`;
+    statusEl.textContent = '';
+    btn.disabled = false;
+    return;
+  }
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        messages: [{
+          role: 'user',
+          content: `You are MELEGI, a music production AI. Analyze these audio features and identify the genre, production style, and influences. Then give exact MELEGI synthesis parameters to reproduce this sound.
+
+Audio features:
+- BPM: ${features.bpm}
+- Detected key: ${features.key}
+- Spectral centroid: ${features.centroid} Hz (GROUXX target = 757 Hz; higher = brighter)
+- Band energy: sub ${features.bands.sub}% · lo-mid ${features.bands.lomid}% · mid ${features.bands.mid}% · hi-mid ${features.bands.himid}% · air ${features.bands.air}%
+- LUFS: ${features.lufs} dB
+- Crest factor: ${features.crest} dB (higher = punchier transients)
+- ZCR: ${features.zcr} per 1000 samples (higher = noisier/more hi-hats)
+
+Return ONLY valid JSON, no markdown:
+{
+  "genre": "2-4 word genre label",
+  "subgenre": "more specific descriptor",
+  "influences": "2-3 artist or producer names",
+  "era": "production era or decade",
+  "why": "1 sentence explaining what in the numbers gave it away",
+  "melegiParams": {
+    "chips": ["array of: dark, lo-fi, soul, boom-bap, dusty, trap, jazz, ambient, eruption"],
+    "bpm": number,
+    "key": "one of: FMINOR CMINOR GMINOR DMINOR AMINOR BBMINOR",
+    "notation": "8 space-separated KS notes matching the key and register",
+    "cash": { "soul": 0-1, "sub": 0-1, "drums": 0-1, "vinyl": 0-1 },
+    "lofi": { "crackle": 0-1, "warmth": 0-1, "wow": 0-1 }
+  }
+}`
+        }]
+      })
+    });
+
+    if (!res.ok) throw new Error('API ' + res.status);
+    const data = await res.json();
+    const text = data.content?.[0]?.text?.trim() || '{}';
+    let parsed;
+    try { parsed = JSON.parse(text); }
+    catch(e) { const m = text.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : {}; }
+
+    statusEl.textContent = '';
+    document.getElementById('genre-name-display').textContent =
+      (parsed.genre || '—') + (parsed.subgenre ? ' · ' + parsed.subgenre : '');
+    document.getElementById('genre-influences-display').textContent =
+      (parsed.influences || '') + (parsed.era ? ' · ' + parsed.era : '');
+    document.getElementById('genre-why-display').textContent = parsed.why || '';
+    document.getElementById('genre-params-display').textContent =
+      `BPM: ${features.bpm} · Key: ${features.key} · Centroid: ${features.centroid} Hz`;
+
+    if (parsed.melegiParams) {
+      window._decodedGenreParams = parsed.melegiParams;
+      document.getElementById('reproduce-btn').style.display = 'block';
+    }
+  } catch(e) {
+    statusEl.textContent = 'Claude error: ' + e.message;
+  }
+  btn.disabled = false;
+}
+
+function applyReproducedGenre() {
+  const p = window._decodedGenreParams;
+  if (!p) return;
+
+  // BPM
+  if (p.bpm) {
+    state.bpm = p.bpm;
+    const bpmSlider = document.querySelector('input[oninput*="state.bpm"]');
+    if (bpmSlider) { bpmSlider.value = p.bpm; bpmSlider.nextElementSibling.textContent = p.bpm; }
+    const bpmDisp = document.getElementById('bpm-display');
+    if (bpmDisp) bpmDisp.textContent = p.bpm + ' BPM';
+  }
+
+  // Key
+  if (p.key) {
+    state.exportKey = p.key;
+    document.querySelectorAll('#key-group .radio-pill').forEach(el => {
+      el.classList.toggle('selected', el.dataset.key === p.key);
+    });
+    updateFilenamePreview();
+  }
+
+  // Style chips
+  if (p.chips && p.chips.length) {
+    const wantOn = new Set(p.chips.map(c => c.toLowerCase()));
+    state.activeStyles.clear();
+    document.querySelectorAll('.style-chip').forEach(chip => {
+      const on = wantOn.has(chip.dataset.style);
+      chip.classList.toggle('active', on);
+      if (on) state.activeStyles.add(chip.dataset.style);
+    });
+  }
+
+  // CASH chain
+  if (p.cash) {
+    const setSlider = (sel, v) => {
+      const el = document.querySelector(sel);
+      if (el) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    };
+    if (p.cash.soul  != null) setSlider('input[oninput*="state.cash.soul"]',  p.cash.soul);
+    if (p.cash.sub   != null) setSlider('input[oninput*="state.cash.sub"]',   p.cash.sub);
+    if (p.cash.drums != null) setSlider('input[oninput*="state.cash.drums"]', p.cash.drums);
+    if (p.cash.vinyl != null) setSlider('input[oninput*="state.cash.vinyl"]', p.cash.vinyl);
+  }
+
+  // Lo-fi
+  if (p.lofi) {
+    const setSlider = (sel, v) => {
+      const el = document.querySelector(sel);
+      if (el) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    };
+    if (p.lofi.crackle != null) setSlider('input[oninput*="state.lofi.crackle"]', p.lofi.crackle);
+    if (p.lofi.warmth  != null) setSlider('input[oninput*="state.lofi.warmth"]',  p.lofi.warmth);
+    if (p.lofi.wow     != null) setSlider('input[oninput*="state.lofi.wow"]',     p.lofi.wow);
+  }
+
+  // KS notation
+  if (p.notation) {
+    const el = document.getElementById('ks-notation');
+    if (el) { el.value = p.notation; el.dispatchEvent(new Event('input', { bubbles: true })); }
+    // Ensure MORE OPTIONS is open so user sees it
+    const body = document.getElementById('more-opts-body');
+    const hdr  = document.getElementById('more-opts-hdr');
+    if (body && !body.classList.contains('open') && hdr) hdr.click();
+  }
+
+  compileLog('GENRE REPRODUCED FROM ANALYSIS — HIT BUILD', 'ok');
+  switchPage('compile');
 }
 
 // ── TRANSPORT ─────────────────────────────────────────────────────────────────
