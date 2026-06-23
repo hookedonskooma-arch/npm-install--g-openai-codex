@@ -180,6 +180,17 @@ input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 
 .preset-btn:hover{border-color:var(--gold);color:var(--gold-light)}
 .preset-btn.active{border-color:var(--gold);color:#f0e8ff;background:var(--gold);box-shadow:0 0 12px rgba(147,51,234,.5)}
 #compile-log{height:100px;overflow-y:auto;background:var(--bg);border:1px solid var(--border);padding:8px;font-size:10px;line-height:1.6;border-radius:2px}
+#vibe-read{display:none;margin-top:8px;padding:10px 12px;background:rgba(147,51,234,.08);border:1px solid rgba(147,51,234,.3);border-radius:3px;font-size:10px;line-height:1.7;color:var(--gold-light);border-left:3px solid var(--gold);line-height:1.85}
+#vibe-read.visible{display:block}
+#vibe-read-text{color:var(--text-dim)}
+#vibe-read-label{color:var(--gold);font-size:9px;letter-spacing:2px;margin-bottom:6px}
+#vibe-read-context{font-size:9px;color:var(--gold);letter-spacing:1px;margin-bottom:5px}
+@keyframes vibe-pulse{0%,100%{opacity:.4}50%{opacity:1}}
+.vibe-read-loading{animation:vibe-pulse 1.2s ease-in-out infinite;color:var(--text-dim)}
+.vm-action-tag{display:inline-block;background:rgba(147,51,234,.2);border:1px solid rgba(147,51,234,.35);border-radius:2px;padding:1px 6px;font-size:8px;margin-right:4px;color:var(--gold-light)}
+.vm-action-tag.eq{background:rgba(255,180,0,.1);border-color:rgba(255,180,0,.3);color:#ffb400}
+.vibe-chat-dim{opacity:.4;pointer-events:none;transition:opacity .3s}
+#vibe-kb-hint{font-size:8px;color:var(--text-dim);margin-top:3px;letter-spacing:.5px}
 .log-line{color:var(--text-dim)}
 .log-line.ok{color:var(--green)}
 .log-line.warn{color:var(--orange)}
@@ -306,6 +317,19 @@ input:focus,select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 
 .hist-name{font-size:10px;color:var(--text-dim);max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hist-size{font-size:10px;color:var(--gold-light)}
 
+/* ── VIBE MIX ─────────────────────────────────────────────────────── */
+#vibe-chat{display:flex;flex-direction:column;flex:1;min-height:0}
+#vibe-msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:4px 0;min-height:120px}
+.vm-user{align-self:flex-end;background:rgba(147,51,234,.18);border:1px solid rgba(147,51,234,.35);border-radius:3px;padding:6px 10px;font-size:10px;color:var(--gold-light);max-width:95%}
+.vm-ai{align-self:flex-start;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:3px;padding:6px 10px;font-size:10px;color:var(--text-dim);max-width:95%}
+.vm-ai .vm-actions{color:var(--green);font-size:9px;margin-bottom:4px;letter-spacing:.5px}
+#vibe-input-row{display:flex;gap:6px;margin-top:8px}
+#vibe-input{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:7px 10px;font-size:10px;color:var(--text);font-family:inherit;resize:none;min-height:36px}
+#vibe-input:focus{outline:none;border-color:rgba(147,51,234,.5)}
+#vibe-send{flex-shrink:0;background:rgba(147,51,234,.2);border:1px solid rgba(147,51,234,.4);color:var(--gold-light);font-size:10px;letter-spacing:1px;padding:0 12px;border-radius:2px;cursor:pointer;font-family:inherit}
+#vibe-send:hover{background:rgba(147,51,234,.35)}
+#vibe-send:disabled{opacity:.35;cursor:default}
+
 /* ── REFS ─────────────────────────────────────────────────────────── */
 .ref-card{border:1px solid var(--border);border-radius:2px;padding:10px;margin-bottom:8px}
 .ref-title{font-size:11px;font-weight:600;text-transform:uppercase;color:var(--gold-light);margin-bottom:6px;letter-spacing:1px}
@@ -346,6 +370,13 @@ body::before{
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 ::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
+
+/* ── GENRE PRESETS ────────────────────────────────────────────────── */
+.preset-genre-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.preset-genre-btn{background:rgba(147,51,234,.1);border:1px solid rgba(147,51,234,.25);color:var(--text-dim);font-size:9px;letter-spacing:1.5px;padding:8px 4px;border-radius:2px;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center}
+.preset-genre-btn:hover{border-color:rgba(147,51,234,.6);color:var(--gold-light);background:rgba(147,51,234,.2)}
+.preset-genre-btn .preset-genre-name{display:block;color:var(--gold);font-size:10px;letter-spacing:1px;margin-bottom:2px}
+.preset-genre-btn .preset-genre-sub{display:block;font-size:8px;opacity:.65}
 
 /* ── MOBILE ───────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
@@ -477,6 +508,27 @@ body::before{
         <button class="toggle-pill active" id="instrumental-toggle" onclick="toggleInstrumental(this)">◎ INSTRUMENTAL</button>
       </div>
 
+      <!-- Genre Presets -->
+      <div class="section-label" style="margin-top:10px">GENRE PRESETS</div>
+      <div class="preset-genre-grid">
+        <button class="preset-genre-btn" onclick="applyGenrePreset('griselda')">
+          <span class="preset-genre-name">GRISELDA</span>
+          <span class="preset-genre-sub">93 BPM · G MIN · BOOM BAP</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('shoegaze')">
+          <span class="preset-genre-name">SHOEGAZE</span>
+          <span class="preset-genre-sub">118 BPM · D MIN · WALL OF SOUND</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('cloudrap')">
+          <span class="preset-genre-name">CLOUD RAP</span>
+          <span class="preset-genre-sub">140 BPM · A MIN · ATMOSPHERIC</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('noirjazz')">
+          <span class="preset-genre-name">NOIR JAZZ</span>
+          <span class="preset-genre-sub">76 BPM · Bb MIN · CINEMATIC</span>
+        </button>
+      </div>
+
       <!-- Styles -->
       <div class="section-label" style="margin-top:10px">STYLES</div>
       <textarea id="styles-prompt" rows="2" placeholder="Describe what you want your beat to sound like" oninput="state.stylesText=this.value" style="min-height:52px"></textarea>
@@ -489,6 +541,7 @@ body::before{
         <button class="style-chip" data-style="trap" onclick="toggleStyleChip(this)">TRAP</button>
         <button class="style-chip" data-style="jazz" onclick="toggleStyleChip(this)">JAZZ</button>
         <button class="style-chip" data-style="ambient" onclick="toggleStyleChip(this)">AMBIENT</button>
+        <button class="style-chip" data-style="eruption" onclick="toggleStyleChip(this)">ERUPTION</button>
       </div>
 
       <!-- Song Title -->
@@ -608,6 +661,11 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <div class="sep"></div>
       <div class="section-label">BUILD LOG</div>
       <div id="compile-log"></div>
+      <div id="vibe-read">
+        <div id="vibe-read-label">⬡ VIBE READ</div>
+        <div id="vibe-read-context"></div>
+        <div id="vibe-read-text"></div>
+      </div>
       <div class="sep"></div>
       <div class="section-label">API KEY</div>
       <input type="password" id="api-key-inline" placeholder="sk-ant-... (tap ⚙ to save)" readonly onclick="openSettings()" style="cursor:pointer">
@@ -663,10 +721,25 @@ Ab1 Eb2 Ab2 C3 Eb3</textarea>
       <option value="eTownConcrete">E.TOWN CONCRETE</option>
       <option value="converge">CONVERGE</option>
     </select>
-    <button class="btn primary" id="apply-correction-btn" onclick="applyCorrection()" disabled>APPLY CORRECTION</button>
-    <div id="correction-status" style="font-size:10px;color:var(--text-dim);line-height:1.7;min-height:60px;padding:8px;border:1px solid var(--border);background:var(--bg);border-radius:2px">LOAD A FILE TO BEGIN.</div>
-    <button class="btn" id="preview-corrected-btn" onclick="previewCorrected()" disabled>PREVIEW CORRECTED</button>
-    <button class="btn" id="send-to-export-btn" onclick="sendToExport()" disabled>SEND TO EXPORT</button>
+    <button class="btn primary" id="apply-correction-btn" onclick="applyCorrection()" disabled>APPLY FINGERPRINT</button>
+    <div class="sep"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="section-label">VIBE MIX</div>
+      <button style="background:none;border:none;color:var(--text-dim);font-size:9px;cursor:pointer;padding:0;font-family:inherit" onclick="clearVibeChat()">× CLEAR</button>
+    </div>
+    <div id="vibe-chat" class="vibe-chat-dim">
+      <div id="vibe-msgs">
+        <div class="vm-ai"><div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>Load a file and describe the vibe. "Darker." "More room." "Push the sub." I'll adjust and re-render.</div>
+      </div>
+      <div id="vibe-input-row">
+        <textarea id="vibe-input" rows="2" placeholder="Describe the vibe..." disabled onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendVibeMsg()}"></textarea>
+        <button id="vibe-send" disabled onclick="sendVibeMsg()">SEND</button>
+      </div>
+      <div id="vibe-kb-hint">↵ SEND · ⇧↵ NEWLINE</div>
+    </div>
+    <div class="sep"></div>
+    <button class="btn" id="preview-corrected-btn" onclick="previewCorrected()" disabled>PREVIEW</button>
+    <button class="btn" id="send-to-export-btn" onclick="sendToExport()" disabled>→ EXPORT</button>
   </div>
 </div>
 
@@ -1062,8 +1135,74 @@ function loadDemo() {
   if (crackleSlider) { crackleSlider.value = '0.5'; state.lofi.crackle = 0.5; crackleSlider.nextElementSibling.textContent = '0.50'; }
   const wowSlider = document.querySelector('input[oninput*="lofi.wow"]');
   if (wowSlider) { wowSlider.value = '0.4'; state.lofi.wow = 0.4; wowSlider.nextElementSibling.textContent = '0.40'; }
-  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT', 'ok');
+  // Apply GRISELDA genre context for BPM + key
+  applyGenrePreset('griselda', { skipStyleChips: true, skipStylesText: true });
+  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT (GRISELDA PRESET)', 'ok');
   compileLog('HIT BUILD TO COMPILE  |  SET API KEY FOR AI-ENHANCED GENERATION', 'info');
+}
+
+// ── GENRE PRESET LOADER ───────────────────────────────────────────────────────
+function applyGenrePreset(preset, opts) {
+  opts = opts || {};
+  const PRESETS = {
+    griselda: {
+      bpm: 93, key: 'GMINOR',
+      chips: ['dark', 'lo-fi', 'soul'],
+      stylesText: 'griselda boom bap dusty soul sample loop'
+    },
+    shoegaze: {
+      bpm: 118, key: 'DMINOR',
+      chips: ['dark', 'soul'],
+      stylesText: 'post-hardcore shoegaze wall of sound ethereal noise'
+    },
+    cloudrap: {
+      bpm: 140, key: 'AMINOR',
+      chips: ['lo-fi', 'soul'],
+      stylesText: 'atmospheric cloud trap melodic arpeggio'
+    },
+    noirjazz: {
+      bpm: 76, key: 'BBMINOR',
+      chips: ['soul', 'lo-fi'],
+      stylesText: 'noir jazz cigarette smoke cinema reverb'
+    }
+  };
+  var p = PRESETS[preset];
+  if (!p) return;
+
+  // BPM
+  state.bpm = p.bpm;
+  var bpmSlider = document.querySelector('input[oninput*="state.bpm"]');
+  if (bpmSlider) {
+    bpmSlider.value = p.bpm;
+    bpmSlider.nextElementSibling.textContent = p.bpm;
+  }
+  document.getElementById('bpm-display').textContent = p.bpm + ' BPM';
+
+  // Key
+  state.exportKey = p.key;
+  document.querySelectorAll('#key-group .radio-pill').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.key === p.key);
+  });
+  updateFilenamePreview();
+
+  // Style chips
+  if (!opts.skipStyleChips) {
+    state.activeStyles.clear();
+    document.querySelectorAll('.style-chip').forEach(function(c) {
+      var on = p.chips.indexOf(c.dataset.style) !== -1;
+      c.classList.toggle('active', on);
+      if (on) state.activeStyles.add(c.dataset.style);
+    });
+  }
+
+  // Styles text
+  if (!opts.skipStylesText) {
+    state.stylesText = p.stylesText;
+    var stylesEl = document.getElementById('styles-prompt');
+    if (stylesEl) stylesEl.value = p.stylesText;
+  }
+
+  compileLog('GENRE PRESET: ' + preset.toUpperCase() + ' — ' + p.bpm + ' BPM · ' + p.key.replace('MINOR',' MIN'), 'info');
 }
 
 async function aiGenerateNotation() {
@@ -1372,9 +1511,9 @@ function karplusStrong(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) 
   const total = Math.floor(dur * sr);
   const buf = new Float32Array(total);
   const delay = new Float32Array(N);
-  const pickThresh = Math.round(N * (1 - pickPos * 0.7));
+  // Fill entire buffer — no zero gap. Taper far-from-pick positions for pick position character.
   for (let i = 0; i < N; i++) {
-    const gain = i < pickThresh ? 1.0 : (1 - pickPos * 0.7);
+    const gain = i < Math.round(N * (1 - pickPos * 0.7)) ? 1.0 : (1 - pickPos * 0.7);
     delay[i] = (Math.random() * 2 - 1) * gain;
   }
   const damp = 0.5 - brightness * 0.15;
@@ -1395,11 +1534,11 @@ function makeBiquadCoeffs(type, freq, gain, Q, sr) {
   let b0,b1,b2,a0,a1,a2;
   switch(type) {
     case 'lowshelf': {
-      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1-1)+2);
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
       b0=A*((A+1)-(A-1)*cw+2*sA*aS);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sA*aS);
       a0=(A+1)+(A-1)*cw+2*sA*aS;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)+(A-1)*cw-2*sA*aS;break;}
     case 'highshelf': {
-      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1-1)+2);
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
       b0=A*((A+1)+(A-1)*cw+2*sA*aS);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sA*aS);
       a0=(A+1)-(A-1)*cw+2*sA*aS;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sA*aS;break;}
     case 'peaking':
@@ -1611,10 +1750,8 @@ async function runCompile() {
   const _hasDARK        = state.activeStyles.has('dark');
   const _hasSOUL        = state.activeStyles.has('soul');
   const _hasDUSTY       = state.activeStyles.has('dusty');
-  const _hasBoomBap     = state.activeStyles.has('boom-bap');
-  const _hasLoFi        = state.activeStyles.has('lo-fi');
-  // DARK without soul/boom-bap/lo-fi → metal-dominant mix
-  const _isDarkDominant = _hasDARK && !_hasSOUL && !_hasBoomBap && !_hasLoFi;
+  // DARK without soul → metal-dominant mix; BOOM-BAP/LO-FI do not suppress metal EQ
+  const _isDarkDominant = _hasDARK && !_hasSOUL;
   if (_isDarkDominant) {
     genreEQ.push(
       {type:'peaking', freq:300,  gain:-4.0, Q:1.5},
@@ -1687,6 +1824,7 @@ async function runCompile() {
   drawViz();
   // Auto-play like Suno — play immediately after generation
   if (!state.isPlaying) setTimeout(() => transportPlay(), 400);
+  getMasteringIntel(master, sr);
 }
 
 function setProgress(p) { document.getElementById('progress-bar').style.width = p+'%'; }
@@ -2027,8 +2165,12 @@ function loadRefineFile(file) {
       });
       document.getElementById('refine-analysis').classList.add('visible');
       document.getElementById('apply-correction-btn').disabled=false;
+      document.getElementById('vibe-input').disabled=false;
+      document.getElementById('vibe-send').disabled=false;
+      const chat = document.getElementById('vibe-chat');
+      if (chat) chat.classList.remove('vibe-chat-dim');
     } catch(err) {
-      document.getElementById('correction-status').textContent='ERROR: '+err.message;
+      compileLog('REFINE ERROR: '+err.message, 'err');
     }
   };
   reader.readAsArrayBuffer(file);
@@ -2039,26 +2181,23 @@ function applyCorrection() {
   const target=REFERENCE_TARGETS[state.refTarget];
   const sr=state.refineAudioBuffer.sampleRate;
   const samples=state.refineAudioBuffer.getChannelData(0);
-  const log=document.getElementById('correction-status');
   let corrected=new Float32Array(samples);
-  log.textContent='';
-  const addLog=m=>{log.textContent+=m+'\n';};
-  addLog('APPLYING FINGERPRINT EQ CHAIN...');
+  compileLog('APPLYING FINGERPRINT EQ CHAIN...', 'info');
   corrected=applyBiquad(corrected, makeBiquadCoeffs('lowshelf',target.subShelf.freq,target.subShelf.gain,0.7,sr));
-  addLog('  LOW SHELF @'+target.subShelf.freq+'Hz +'+target.subShelf.gain+'dB — OK');
+  compileLog('  LOW SHELF @'+target.subShelf.freq+'Hz +'+target.subShelf.gain+'dB — OK', 'ok');
   corrected=applyBiquad(corrected, makeBiquadCoeffs('lowpass',target.lpFreq,0,0.707,sr));
-  addLog('  LOWPASS @'+target.lpFreq+'Hz — OK');
+  compileLog('  LOWPASS @'+target.lpFreq+'Hz — OK', 'ok');
   corrected=applyEQChain(corrected,FINGERPRINT_EQ,sr);
-  addLog('  FINGERPRINT EQ CHAIN — OK');
+  compileLog('  FINGERPRINT EQ CHAIN — OK', 'ok');
   let pk=0;
   for(let i=0;i<corrected.length;i++) pk=Math.max(pk,Math.abs(corrected[i]));
   if(pk>0){const g=Math.pow(10,-1/20)/pk; for(let i=0;i<corrected.length;i++) corrected[i]*=g;}
-  addLog('  NORMALIZED TO -1 dBFS — OK');
+  compileLog('  NORMALIZED TO -1 dBFS — OK', 'ok');
   state.correctedSamples=corrected;
   const buf=state.audioCtx.createBuffer(1,corrected.length,sr);
   buf.copyToChannel(corrected,0);
   state.refinedBuffer=buf;
-  addLog('CORRECTION COMPLETE.');
+  compileLog('FINGERPRINT APPLIED.', 'ok');
   document.getElementById('preview-corrected-btn').disabled=false;
   document.getElementById('send-to-export-btn').disabled=false;
 }
@@ -2078,6 +2217,214 @@ function sendToExport() {
   state.masterBuffer=state.refinedBuffer; state.compileDone=true;
   document.getElementById('render-btn').disabled=false;
   switchPage('export');
+}
+
+// ── VIBE READ ─────────────────────────────────────────────────────────────────
+async function getMasteringIntel(master, sr) {
+  const apiKey = localStorage.getItem('melegi_api_key');
+  const el = document.getElementById('vibe-read');
+  const txt = document.getElementById('vibe-read-text');
+  const ctx = document.getElementById('vibe-read-context');
+  el.classList.add('visible');
+
+  // Context tag: chips · BPM · key
+  const chips = [...state.activeStyles].join(' · ').toUpperCase() || 'NO CHIPS';
+  const keyLabel = (state.exportKey || 'FMINOR').replace('MINOR',' MIN');
+  if (ctx) ctx.textContent = '⬡ ' + chips + ' · ' + state.bpm + ' BPM · ' + keyLabel;
+
+  if (!apiKey) {
+    txt.innerHTML = '<span style="color:var(--text-dim)">Add an Anthropic API key in ⚙ Settings to get a plain-language read of your beat.</span>';
+    return;
+  }
+  txt.innerHTML = '<span class="vibe-read-loading">reading…</span>';
+
+  let sq=0, pk=0;
+  for (let i=0;i<master.length;i++){sq+=master[i]*master[i];pk=Math.max(pk,Math.abs(master[i]));}
+  const rmsDb = 20*Math.log10(Math.sqrt(sq/master.length)||1e-9);
+  const lufs = rmsDb - 0.691;
+  const centroid = computeCentroidApprox(master.slice(Math.floor(master.length/4), Math.floor(master.length/4)+4096), sr, 2048);
+  const bands = computeBandEnergies(master, sr, 2048);
+  const tot = bands.reduce((a,b)=>a+b,0)||1;
+  const [sub,lomid,mid,himid,air] = bands.map(b=>Math.round(b/tot*100));
+  const chipsLabel = [...state.activeStyles].join(', ') || 'none';
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001', max_tokens:180,
+        messages:[{role:'user', content:
+          `You are MELEGI, a beat engineer. Give a 2-sentence plain-language read of this beat — what it sounds like, and one concrete thing to try. Be direct, no filler. Sound like a producer, not a manual.\n\nStats: ${state.bpm} BPM, centroid ${Math.round(centroid)} Hz (target 757 Hz), LUFS ${lufs.toFixed(1)}, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%, active chips: ${chipsLabel}.`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    txt.textContent = d.content?.[0]?.text?.trim() || '—';
+  } catch(e) {
+    txt.innerHTML = '<span style="color:var(--text-dim)">Could not load vibe read: ' + e.message + '</span>';
+  }
+}
+
+// ── VIBE MIX ──────────────────────────────────────────────────────────────────
+function appendVibeMsg(role, html) {
+  const msgs = document.getElementById('vibe-msgs');
+  const div = document.createElement('div');
+  div.className = role === 'user' ? 'vm-user' : 'vm-ai';
+  div.innerHTML = html;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+async function sendVibeMsg() {
+  const input = document.getElementById('vibe-input');
+  const sendBtn = document.getElementById('vibe-send');
+  const msg = input.value.trim();
+  if (!msg || !state.refineAudioBuffer) return;
+  const apiKey = localStorage.getItem('melegi_api_key');
+  if (!apiKey) { appendVibeMsg('ai', '<div style="color:var(--orange)">Add an Anthropic API key in ⚙ Settings to use VIBE MIX.</div>'); return; }
+
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+  appendVibeMsg('user', msg);
+  appendVibeMsg('ai', '<span style="color:var(--text-dim)">thinking...</span>');
+
+  const src = state.correctedSamples || state.refineAudioBuffer.getChannelData(0);
+  const sr = state.refineAudioBuffer.sampleRate;
+  let sq=0, pk=0;
+  for(let i=0;i<src.length;i++){sq+=src[i]*src[i];pk=Math.max(pk,Math.abs(src[i]));}
+  const rmsDb = 20*Math.log10(Math.sqrt(sq/src.length)||1e-9);
+  const centroid = computeCentroidApprox(src.slice(Math.floor(src.length/4),Math.floor(src.length/4)+4096),sr,2048);
+  const bands = computeBandEnergies(src,sr,2048);
+  const tot = bands.reduce((a,b)=>a+b,0)||1;
+  const [sub,lomid,mid,himid,air] = bands.map(b=>Math.round(b/tot*100));
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'x-api-key':apiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001', max_tokens:300,
+        messages:[{role:'user', content:
+          `You are MELEGI, a vibe-mixing AI. The engineer said: "${msg}"\n\nCurrent audio stats: centroid ${Math.round(centroid)} Hz, RMS ${rmsDb.toFixed(1)} dB, bands: sub ${sub}% lo-mid ${lomid}% mid ${mid}% hi-mid ${himid}% air ${air}%.\n\nReturn ONLY valid JSON, no markdown, no explanation outside the JSON:\n{"adjustments":[{"type":"lowshelf"|"highshelf"|"peaking"|"lowpass"|"reverb","freq":number,"gain":number,"q":number,"mix":number,"label":"short action label"}],"reply":"1 sentence saying what you did, in producer voice"}\n\nFor reverb type, use only "mix" field (0-1). For EQ types use freq+gain+q. Max 3 adjustments. Match the vibe described.`
+        }]
+      })
+    });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    const text = d.content?.[0]?.text?.trim() || '{}';
+    let parsed;
+    try { parsed = JSON.parse(text); } catch(e) { const m=text.match(/\{[\s\S]*\}/); parsed=m?JSON.parse(m[0]):{adjustments:[],reply:'Could not parse response.'}; }
+
+    const adjustments = parsed.adjustments || [];
+    const reply = parsed.reply || '—';
+
+    // Apply adjustments to a copy of current audio
+    let working = new Float32Array(src);
+    const actionLines = [];
+    for (const adj of adjustments) {
+      if (adj.type === 'reverb') {
+        const mix = Math.max(0, Math.min(1, adj.mix || 0.2));
+        const delayMs = 30, delaySamps = Math.max(1, Math.floor(sr * delayMs / 1000));
+        const fb = 0.45 * mix;
+        const buf = new Float32Array(delaySamps).fill(0);
+        for (let i=0;i<working.length;i++) {
+          const di = i % delaySamps;
+          const wet = buf[di];
+          buf[di] = working[i] + wet * fb;
+          working[i] = working[i] * (1-mix) + wet * mix;
+        }
+        actionLines.push(adj.label || 'reverb ×'+mix.toFixed(2));
+      } else {
+        const coeffs = makeBiquadCoeffs(adj.type, adj.freq||1000, adj.gain||0, adj.q||0.707, sr);
+        working = applyBiquad(working, coeffs);
+        actionLines.push(adj.label || (adj.type+' @'+(adj.freq||'')+'Hz'));
+      }
+    }
+    // Normalize to prevent clipping
+    let pk2=0; for(let i=0;i<working.length;i++) pk2=Math.max(pk2,Math.abs(working[i]));
+    if(pk2>0.98){const g=0.97/pk2;for(let i=0;i<working.length;i++) working[i]*=g;}
+
+    state.correctedSamples = working;
+    const newBuf = state.audioCtx.createBuffer(1, working.length, sr);
+    newBuf.copyToChannel(working, 0);
+    state.refinedBuffer = newBuf;
+
+    // Replace the "thinking..." placeholder
+    const msgs = document.getElementById('vibe-msgs');
+    const last = msgs.lastElementChild;
+    const isEqType = (t) => ['lowshelf','highshelf','peaking','lowpass','highpass'].includes(t);
+    const tagsHtml = adjustments.map(a =>
+      `<span class="vm-action-tag${isEqType(a.type) ? ' eq' : ''}">${a.label || a.type}</span>`
+    ).join('');
+    const replyEl = document.createElement('span');
+    last.innerHTML = `<div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div><div style="margin-bottom:4px">${tagsHtml}</div>`;
+    last.appendChild(replyEl);
+    typeText(replyEl, reply, 38);
+
+    document.getElementById('preview-corrected-btn').disabled = false;
+    document.getElementById('send-to-export-btn').disabled = false;
+
+    // Auto-preview
+    previewCorrected();
+    updateRefineSpectral(working, sr);
+
+  } catch(e) {
+    const msgs = document.getElementById('vibe-msgs');
+    msgs.lastElementChild.innerHTML = `<span style="color:var(--red)">ERROR: ${e.message}</span>`;
+  }
+  input.disabled = false;
+  sendBtn.disabled = false;
+  input.focus();
+}
+
+function typeText(el, text, msPerWord) {
+  msPerWord = msPerWord || 40;
+  el.textContent = '';
+  var words = text.split(' ');
+  var i = 0;
+  (function next() {
+    if (i >= words.length) return;
+    el.textContent += (i > 0 ? ' ' : '') + words[i++];
+    setTimeout(next, msPerWord);
+  })();
+}
+
+function clearVibeChat() {
+  var msgs = document.getElementById('vibe-msgs');
+  if (!msgs) return;
+  msgs.innerHTML = '<div class="vm-ai"><div style="color:var(--gold);font-size:9px;letter-spacing:1px;margin-bottom:3px">MELEGI</div>Load a file and describe the vibe. "Darker." "More room." "Push the sub." I\'ll adjust and re-render.</div>';
+}
+
+function updateRefineSpectral(working, sr) {
+  var slice = working.slice(Math.floor(working.length / 4), Math.floor(working.length / 4) + 4096);
+  var centroid = computeCentroidApprox(slice, sr, 2048);
+  var cdEl = document.getElementById('centroid-display');
+  if (cdEl) {
+    cdEl.textContent = Math.round(centroid) + ' Hz';
+    var delta = centroid - 757;
+    var deltaEl = document.getElementById('centroid-delta');
+    if (deltaEl) deltaEl.textContent = 'DELTA: ' + (delta >= 0 ? '+' : '') + Math.round(delta) + ' Hz';
+    cdEl.className = Math.abs(delta) < 50 ? 'good' : Math.abs(delta) < 150 ? 'ok' : 'bad';
+  }
+  var bands = computeBandEnergies(working, sr, 2048);
+  var tot = bands.reduce(function(a, b) { return a + b; }, 0) || 1;
+  ['sub', 'lomid', 'mid', 'himid', 'air'].forEach(function(b, i) {
+    var pct = Math.round(bands[i] / tot * 100);
+    var fill = document.getElementById('band-' + b);
+    var pctEl = document.getElementById('bpct-' + b);
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+  });
+  var sq = 0;
+  for (var i = 0; i < working.length; i++) sq += working[i] * working[i];
+  var rmsDb = 20 * Math.log10(Math.sqrt(sq / working.length) || 1e-9);
+  var rmsEl = document.getElementById('rfi-rms');
+  var lufsEl = document.getElementById('rfi-lufs');
+  if (rmsEl) rmsEl.textContent = rmsDb.toFixed(1);
+  if (lufsEl) lufsEl.textContent = (rmsDb - 0.691).toFixed(1);
 }
 
 // ── EXPORT ────────────────────────────────────────────────────────────────────
@@ -2144,9 +2491,10 @@ async function renderAndDownload() {
   document.getElementById('export-progress').style.width='50%';
   exportLog('APPLYING LUFS TARGET '+cfg.lufs+'...','');
   const curLufs = measureLufsK(resampled, cfg.sr);
-  // Guard: skip normalization below -65 dBLUFS (near-silence / noise floor only).
-  // Protects against 40 dB over-boost while still normalizing sparse-but-musical content.
-  const gainLin = curLufs >= -65 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 100) : 1;
+  // Guard: skip normalization below -70 dBLUFS (silence sentinel is -80).
+  // Cap at 20× (26 dB) — compile path already hard-clips to -0.1 dBFS, so export
+  // should need at most a few dB of LUFS adjustment for normal content.
+  const gainLin = curLufs > -70 ? Math.min(Math.pow(10,(cfg.lufs-curLufs)/20), 20) : 1;
   for(let i=0;i<resampled.length;i++) resampled[i]*=gainLin;
   if(cfg.limit){
     // True-peak limit: proportional rescale, no hard clipping distortion
