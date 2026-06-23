@@ -85,6 +85,21 @@ Screenshots land in `/tmp/melegi-screenshots/`. Playwright + Chromium are pre-in
 
 ---
 
+## MELEGI Product North Star
+
+**Vibe coding → Vibe production.**
+
+The product thesis: just as vibe coding eliminates the gap between *intent* and *implementation* in software, MELEGI eliminates the gap between *vibe* and *sound* in music production. The user stays in the creative/directional role; MELEGI handles synthesis, arrangement, mixing, and mastering decisions.
+
+Three pillars:
+1. **Vibe BUILD** — Style chips + prompt describe the feel. AI (Claude Haiku) translates into KS notation, DSP parameters, and CASH chain settings. User never touches a frequency number.
+2. **Vibe MIX** — Conversational REFINE: "more room / darker / push the sub" → Claude interprets → DSP executes → instant re-render + preview. The feedback loop is a conversation, not a knob.
+3. **Vibe MASTER** — Plain-language mastering intel after every BUILD: "Your kick is fighting the sub at 80Hz. Centroid is 847Hz — 90Hz above the GROUXX fingerprint. Try the DARK chip." Numbers serve the producer's ear, not the other way around.
+
+Every new feature should ask: does this keep the user in the creative seat, or does it make them an engineer?
+
+---
+
 ## Session Workflow Rule
 
 **After every test or render that produces a WAV, send the file to the user immediately.**
