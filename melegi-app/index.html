@@ -364,6 +364,13 @@ body::before{
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
 ::-webkit-scrollbar-thumb:hover{background:var(--text-dim)}
 
+/* ── GENRE PRESETS ────────────────────────────────────────────────── */
+.preset-genre-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
+.preset-genre-btn{background:rgba(147,51,234,.1);border:1px solid rgba(147,51,234,.25);color:var(--text-dim);font-size:9px;letter-spacing:1.5px;padding:8px 4px;border-radius:2px;cursor:pointer;font-family:inherit;transition:all .15s;text-align:center}
+.preset-genre-btn:hover{border-color:rgba(147,51,234,.6);color:var(--gold-light);background:rgba(147,51,234,.2)}
+.preset-genre-btn .preset-genre-name{display:block;color:var(--gold);font-size:10px;letter-spacing:1px;margin-bottom:2px}
+.preset-genre-btn .preset-genre-sub{display:block;font-size:8px;opacity:.65}
+
 /* ── MOBILE ───────────────────────────────────────────────────────── */
 @media (max-width: 700px) {
   #wrapper{padding-bottom:calc(52px + var(--safe-bottom))}
@@ -494,6 +501,27 @@ body::before{
         <button class="toggle-pill active" id="instrumental-toggle" onclick="toggleInstrumental(this)">◎ INSTRUMENTAL</button>
       </div>
 
+      <!-- Genre Presets -->
+      <div class="section-label" style="margin-top:10px">GENRE PRESETS</div>
+      <div class="preset-genre-grid">
+        <button class="preset-genre-btn" onclick="applyGenrePreset('griselda')">
+          <span class="preset-genre-name">GRISELDA</span>
+          <span class="preset-genre-sub">93 BPM · G MIN · BOOM BAP</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('shoegaze')">
+          <span class="preset-genre-name">SHOEGAZE</span>
+          <span class="preset-genre-sub">118 BPM · D MIN · WALL OF SOUND</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('cloudrap')">
+          <span class="preset-genre-name">CLOUD RAP</span>
+          <span class="preset-genre-sub">140 BPM · A MIN · ATMOSPHERIC</span>
+        </button>
+        <button class="preset-genre-btn" onclick="applyGenrePreset('noirjazz')">
+          <span class="preset-genre-name">NOIR JAZZ</span>
+          <span class="preset-genre-sub">76 BPM · Bb MIN · CINEMATIC</span>
+        </button>
+      </div>
+
       <!-- Styles -->
       <div class="section-label" style="margin-top:10px">STYLES</div>
       <textarea id="styles-prompt" rows="2" placeholder="Describe what you want your beat to sound like" oninput="state.stylesText=this.value" style="min-height:52px"></textarea>
@@ -506,6 +534,7 @@ body::before{
         <button class="style-chip" data-style="trap" onclick="toggleStyleChip(this)">TRAP</button>
         <button class="style-chip" data-style="jazz" onclick="toggleStyleChip(this)">JAZZ</button>
         <button class="style-chip" data-style="ambient" onclick="toggleStyleChip(this)">AMBIENT</button>
+        <button class="style-chip" data-style="eruption" onclick="toggleStyleChip(this)">ERUPTION</button>
       </div>
 
       <!-- Song Title -->
@@ -1094,8 +1123,74 @@ function loadDemo() {
   if (crackleSlider) { crackleSlider.value = '0.5'; state.lofi.crackle = 0.5; crackleSlider.nextElementSibling.textContent = '0.50'; }
   const wowSlider = document.querySelector('input[oninput*="lofi.wow"]');
   if (wowSlider) { wowSlider.value = '0.4'; state.lofi.wow = 0.4; wowSlider.nextElementSibling.textContent = '0.40'; }
-  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT', 'ok');
+  // Apply GRISELDA genre context for BPM + key
+  applyGenrePreset('griselda', { skipStyleChips: true, skipStylesText: true });
+  compileLog('DEMO LOADED: THE FLOOR GAVE UP — 9-STRING C# ARRANGEMENT (GRISELDA PRESET)', 'ok');
   compileLog('HIT BUILD TO COMPILE  |  SET API KEY FOR AI-ENHANCED GENERATION', 'info');
+}
+
+// ── GENRE PRESET LOADER ───────────────────────────────────────────────────────
+function applyGenrePreset(preset, opts) {
+  opts = opts || {};
+  const PRESETS = {
+    griselda: {
+      bpm: 93, key: 'GMINOR',
+      chips: ['dark', 'lo-fi', 'soul'],
+      stylesText: 'griselda boom bap dusty soul sample loop'
+    },
+    shoegaze: {
+      bpm: 118, key: 'DMINOR',
+      chips: ['dark', 'soul'],
+      stylesText: 'post-hardcore shoegaze wall of sound ethereal noise'
+    },
+    cloudrap: {
+      bpm: 140, key: 'AMINOR',
+      chips: ['lo-fi', 'soul'],
+      stylesText: 'atmospheric cloud trap melodic arpeggio'
+    },
+    noirjazz: {
+      bpm: 76, key: 'BBMINOR',
+      chips: ['soul', 'lo-fi'],
+      stylesText: 'noir jazz cigarette smoke cinema reverb'
+    }
+  };
+  var p = PRESETS[preset];
+  if (!p) return;
+
+  // BPM
+  state.bpm = p.bpm;
+  var bpmSlider = document.querySelector('input[oninput*="state.bpm"]');
+  if (bpmSlider) {
+    bpmSlider.value = p.bpm;
+    bpmSlider.nextElementSibling.textContent = p.bpm;
+  }
+  document.getElementById('bpm-display').textContent = p.bpm + ' BPM';
+
+  // Key
+  state.exportKey = p.key;
+  document.querySelectorAll('#key-group .radio-pill').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.key === p.key);
+  });
+  updateFilenamePreview();
+
+  // Style chips
+  if (!opts.skipStyleChips) {
+    state.activeStyles.clear();
+    document.querySelectorAll('.style-chip').forEach(function(c) {
+      var on = p.chips.indexOf(c.dataset.style) !== -1;
+      c.classList.toggle('active', on);
+      if (on) state.activeStyles.add(c.dataset.style);
+    });
+  }
+
+  // Styles text
+  if (!opts.skipStylesText) {
+    state.stylesText = p.stylesText;
+    var stylesEl = document.getElementById('styles-prompt');
+    if (stylesEl) stylesEl.value = p.stylesText;
+  }
+
+  compileLog('GENRE PRESET: ' + preset.toUpperCase() + ' — ' + p.bpm + ' BPM · ' + p.key.replace('MINOR',' MIN'), 'info');
 }
 
 async function aiGenerateNotation() {
