@@ -1522,11 +1522,11 @@ function makeBiquadCoeffs(type, freq, gain, Q, sr) {
   let b0,b1,b2,a0,a1,a2;
   switch(type) {
     case 'lowshelf': {
-      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1-1)+2);
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
       b0=A*((A+1)-(A-1)*cw+2*sA*aS);b1=2*A*((A-1)-(A+1)*cw);b2=A*((A+1)-(A-1)*cw-2*sA*aS);
       a0=(A+1)+(A-1)*cw+2*sA*aS;a1=-2*((A-1)+(A+1)*cw);a2=(A+1)+(A-1)*cw-2*sA*aS;break;}
     case 'highshelf': {
-      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1-1)+2);
+      const sA=Math.sqrt(A), aS=sw/2*Math.sqrt((A+1/A)*(1/Q-1)+2);
       b0=A*((A+1)+(A-1)*cw+2*sA*aS);b1=-2*A*((A-1)+(A+1)*cw);b2=A*((A+1)+(A-1)*cw-2*sA*aS);
       a0=(A+1)-(A-1)*cw+2*sA*aS;a1=2*((A-1)-(A+1)*cw);a2=(A+1)-(A-1)*cw-2*sA*aS;break;}
     case 'peaking':
@@ -2303,7 +2303,7 @@ async function sendVibeMsg() {
     for (const adj of adjustments) {
       if (adj.type === 'reverb') {
         const mix = Math.max(0, Math.min(1, adj.mix || 0.2));
-        const delayMs = 30, delaySamps = Math.floor(sr * delayMs / 1000);
+        const delayMs = 30, delaySamps = Math.max(1, Math.floor(sr * delayMs / 1000));
         const fb = 0.45 * mix;
         const buf = new Float32Array(delaySamps).fill(0);
         for (let i=0;i<working.length;i++) {
