@@ -1581,6 +1581,26 @@ function karplusStrong(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) 
   return buf;
 }
 
+// Unison KS: 2–3 detuned voices per note to eliminate the "MIDI pluck" flatness.
+// Real instruments are never perfectly in tune with themselves — the beating between
+// slightly detuned strings is what makes acoustic/electric guitar feel alive.
+function karplusUnison(freq, dur, sr, decay=0.995, pickPos=0.5, brightness=0.5) {
+  // Three voices: center, +6 cents, -6 cents
+  const detune = [0, 6, -6];
+  const out = new Float32Array(Math.floor(dur * sr));
+  for (let v = 0; v < 3; v++) {
+    const f  = freq * Math.pow(2, detune[v] / 1200);
+    const pp = Math.max(0.05, Math.min(0.95, pickPos + (v - 1) * 0.07));
+    const br = Math.max(0.1,  Math.min(0.9,  brightness + (v - 1) * 0.04));
+    const voice = karplusStrong(f, dur, sr, decay, pp, br);
+    const w = v === 0 ? 1.0 : 0.55; // center voice louder
+    for (let i = 0; i < out.length; i++) out[i] += voice[i] * w;
+  }
+  // Normalize: center(1) + side(0.55+0.55) = 2.1
+  for (let i = 0; i < out.length; i++) out[i] /= 2.1;
+  return out;
+}
+
 // ── BIQUAD ────────────────────────────────────────────────────────────────────
 function makeBiquadCoeffs(type, freq, gain, Q, sr) {
   const w = 2*Math.PI*freq/sr, cw = Math.cos(w), sw = Math.sin(w);
@@ -1722,30 +1742,45 @@ async function runCompile() {
   if (!freqs.length) freqs.push(146.83,220,293.66);
   setProgress(10);
 
-  const noteDur = spb*0.9, decay = state.decay;
-  // Strum all chord voices together — 6ms stagger between strings for natural feel
-  const strumMs = 0.006;
+  const decay = state.decay;
+  // Ring through 2 beats so notes sustain naturally rather than retriggering every beat
+  const noteDur = spb * 2.1;
   const sg = state.cash.soul * cashGain * 0.38 / Math.sqrt(Math.max(freqs.length, 1));
+  // Half-time strum: strum on beat 1 and beat 3 of each bar, sustain through 2 beats
+  // Pattern per bar (4 beats): strum=1, ring=0, strum=1, ring=0
+  // With occasional fill hits for organic variation
+  const barFills = [0, 1, 0, 1, 0, 0, 1, 0]; // extra strum on some "ring" beats
   for (let b = 0; b < totalBeats; b++) {
+    const beatInBar  = b % 4;
+    const barIdx     = Math.floor(b / 4) % barFills.length;
+    const isStrum    = beatInBar === 0 || beatInBar === 2 || barFills[barIdx] === 1 && beatInBar === 3;
+    if (!isStrum) continue;
     const beatStart = Math.floor(b * spb * sr);
+    // Random per-strum velocity: 0.55–1.0 (wide dynamic range = human)
+    const strumVel = 0.55 + Math.random() * 0.45;
+    // Random strum speed: 4–10ms spread across strings
+    const strumMs  = 0.004 + Math.random() * 0.006;
     for (let n = 0; n < freqs.length; n++) {
-      const offset = Math.floor(n * strumMs * sr);
-      const start = Math.min(beatStart + offset, totalSamples - 1);
-      const pickPos = 0.25 + (n / freqs.length) * 0.5;
+      // Small random timing per string (±2ms jitter beyond the strum spread)
+      const jitter = Math.floor((Math.random() - 0.5) * 0.002 * sr);
+      const offset = Math.floor(n * strumMs * sr) + jitter;
+      const start  = Math.max(0, Math.min(beatStart + offset, totalSamples - 1));
+      const pickPos = 0.25 + (n / freqs.length) * 0.5 + (Math.random() - 0.5) * 0.1;
       const brt     = 0.3  + (n / freqs.length) * 0.35;
-      const vel     = 0.85 + (n % 3 === 0 ? 0.15 : -0.05);
-      const ks = karplusStrong(freqs[n], noteDur, sr, decay, pickPos, brt);
+      // Per-note velocity taper: lower notes slightly louder for warmth
+      const noteVel = strumVel * (n < freqs.length / 2 ? 1.0 : 0.75 + Math.random() * 0.25);
+      const ks = karplusUnison(freqs[n], noteDur, sr, decay, pickPos, brt);
       for (let i = 0; i < ks.length && start + i < totalSamples; i++) {
-        master[start + i] += ks[i] * sg * vel;
+        master[start + i] += ks[i] * sg * noteVel;
       }
     }
-    // Swing ghost: root octave-down on off-beats
-    if (b % 2 === 1) {
-      const off = Math.floor(state.swing * spb * 0.333 * sr);
-      const ss = Math.min(beatStart + off, totalSamples - 1);
-      const ks2 = karplusStrong(freqs[0] * 0.5, noteDur * 0.65, sr, decay, 0.5, 0.25);
+    // Swing ghost: root sub-octave on 3rd beat with random timing offset
+    if (beatInBar === 2 && state.swing > 0.1) {
+      const off = Math.floor(state.swing * spb * 0.28 * sr);
+      const ss  = Math.min(beatStart + off, totalSamples - 1);
+      const ks2 = karplusUnison(freqs[0] * 0.5, noteDur * 0.55, sr, decay, 0.5, 0.25);
       for (let i = 0; i < ks2.length && ss + i < totalSamples; i++) {
-        master[ss + i] += ks2[i] * sg * 0.55;
+        master[ss + i] += ks2[i] * sg * 0.45;
       }
     }
   }
