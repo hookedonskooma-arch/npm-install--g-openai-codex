@@ -1757,7 +1757,8 @@ async function runCompile() {
   const steps = 4;
   // Root = lowest note in notation; transpose to bass register if needed
   const rootFreq = freqs[0] || 82;
-  const bassStart = rootFreq > 130 ? rootFreq / 2 : rootFreq; // push to E2-A2 range
+  let bassStart = rootFreq;
+  while (bassStart > 130) bassStart /= 2; // push to bass register regardless of octave
   const bassEnd   = Math.max(22, bassStart * 0.44);
   for (let s = 0; s < totalBeats*steps; s++) {
     if (kickPat[s%kickPat.length]) {
@@ -2102,7 +2103,10 @@ function extractAudioFeatures(samples, sr) {
 // FFT = Sensor · Embedding = Memory · Generation = Navigation
 
 function computeSonicFFT(samples, sr) {
-  const N = Math.min(2048, samples.length);
+  // Skip first 10% to avoid silent intros; take 2048 contiguous samples from body of track
+  const skip = Math.floor(samples.length * 0.1);
+  const wStart = Math.min(skip, Math.max(0, samples.length - 2048));
+  const N = Math.min(2048, samples.length - wStart);
   const bandsHz = [[20,60],[60,200],[200,600],[600,2000],[2000,6000],[6000,12000],[12000,20000]];
   const keys    = ['sub_bass','bass','low_mid','mid','high_mid','treble','air'];
   const e = new Array(7).fill(0);
@@ -2111,7 +2115,7 @@ function computeSonicFFT(samples, sr) {
     const freq = 20 + (20000 - 20) * b / (numBins - 1);
     const kFrac = freq / sr;
     let r = 0;
-    for (let n = 0; n < N; n++) r += samples[n] * Math.cos(2 * Math.PI * kFrac * n);
+    for (let n = 0; n < N; n++) r += samples[wStart + n] * Math.cos(2 * Math.PI * kFrac * n);
     const mag = r * r;
     for (let i = 0; i < bandsHz.length; i++) {
       if (freq >= bandsHz[i][0] && freq < bandsHz[i][1]) { e[i] += mag; break; }
@@ -2211,7 +2215,7 @@ function computeCadenceFFT(samples, sr) {
     if (dt < 0.8) { ioiSum += dt; ioiN++; }
   }
   const phrase_length = ioiN > 0 ? Math.min(1, ioiSum / ioiN / 0.4) : 0.5;
-  return { syllables_per_second, pitch_jumps: harsh_transition * 0.7, falsetto: 0.1, harsh_transition, phrase_length };
+  return { syllables_per_second, harsh_transition, phrase_length };
 }
 
 function computeGenreVector(sonic, temporal, emotional, cadence, bpm) {
@@ -2409,9 +2413,20 @@ function updateTasteUI() {
     row.className = 'taste-song-item';
     const genres = s.embedding.GenreVector;
     const topGenre = Object.entries(genres).sort((a,b) => b[1]-a[1])[0];
-    row.innerHTML = `<span class="taste-song-name" title="${s.name}">${s.name}</span>
-      <span style="font-size:8px;color:rgba(147,51,234,.7);flex-shrink:0">${topGenre[0].replace('_',' ')}</span>
-      <span class="taste-song-remove" onclick="removeLikedSong(${i})">✕</span>`;
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'taste-song-name';
+    nameSpan.title = s.name;
+    nameSpan.textContent = s.name;
+    const genreSpan = document.createElement('span');
+    genreSpan.style.cssText = 'font-size:8px;color:rgba(147,51,234,.7);flex-shrink:0';
+    genreSpan.textContent = topGenre[0].replace('_', ' ');
+    const removeSpan = document.createElement('span');
+    removeSpan.className = 'taste-song-remove';
+    removeSpan.textContent = '✕';
+    removeSpan.onclick = () => removeLikedSong(i);
+    row.appendChild(nameSpan);
+    row.appendChild(genreSpan);
+    row.appendChild(removeSpan);
     listEl.appendChild(row);
   });
 
