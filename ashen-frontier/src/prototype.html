@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ashen Frontier — Phase 1 Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d0d0d; color: #e8d9b0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
+  #hud { width: 800px; display: flex; gap: 16px; padding: 8px 12px; background: rgba(0,0,0,0.7); border: 1px solid #3a3020; border-bottom: none; font-size: 13px; }
+  .res { display: flex; align-items: center; gap: 5px; }
+  .res-icon { width: 12px; height: 12px; border-radius: 2px; }
+  #canvas { display: block; border: 1px solid #3a3020; cursor: crosshair; }
+  #bar { width: 800px; display: flex; gap: 8px; padding: 7px 12px; background: rgba(0,0,0,0.7); border: 1px solid #3a3020; border-top: none; font-size: 11px; color: #8a7a5a; }
+  .key { background: #2a2218; border: 1px solid #5a4a2a; padding: 2px 6px; border-radius: 3px; color: #c8b880; }
+  #log { width: 800px; padding: 4px 12px; font-size: 11px; color: #6a8a5a; height: 20px; }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  <div class="res"><div class="res-icon" style="background:#7a5a2a"></div><span id="r-wood">Wood: 0</span></div>
+  <div class="res"><div class="res-icon" style="background:#888"></div><span id="r-stone">Stone: 0</span></div>
+  <div class="res"><div class="res-icon" style="background:#4a3a2a"></div><span id="r-ash">Ash: 0</span></div>
+  <div style="margin-left:auto" id="mode-label">— EXPLORE —</div>
+</div>
+<canvas id="canvas" width="800" height="560"></canvas>
+<div id="bar">
+  <span><span class="key">WASD</span> Move</span>
+  <span><span class="key">E</span> Gather</span>
+  <span><span class="key">1</span> Campfire (2w+1s)</span>
+  <span><span class="key">2</span> Foundation (3w)</span>
+  <span><span class="key">3</span> Wall (2w)</span>
+  <span><span class="key">4</span> Creature Pen (4w+2s)</span>
+  <span><span class="key">Esc</span> Cancel</span>
+</div>
+<div id="log"></div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+const T = 32; // tile size px
+const W = Math.floor(canvas.width  / T); // 25 tiles wide
+const H = Math.floor(canvas.height / T); // 17 tiles tall
+
+// ── PALETTE ──────────────────────────────────────────────────────────────────
+const PAL = {
+  grass:      '#2a3a1e',
+  grassLight: '#304522',
+  forest:     '#1e3a1e',
+  rock:       '#3a3530',
+  ash:        '#2a2520',
+  ashLight:   '#352e28',
+  path:       '#3a3020',
+  player:     '#e8d9b0',
+  campfire:   '#c84a00',
+  fire:       '#ff8a00',
+  foundation: '#6a5a3a',
+  wall:       '#7a6a4a',
+  pen:        '#4a3a1a',
+  penPost:    '#7a5a2a',
+  grid:       'rgba(255,255,200,0.04)',
+};
+
+// ── WORLD GENERATION ─────────────────────────────────────────────────────────
+function rng(seed) {
+  let s = seed;
+  return () => { s ^= s<<13; s ^= s>>17; s ^= s<<5; return ((s>>>0)/0xffffffff); };
+}
+const rand = rng(0xAF);
+
+const TILE_GRASS=0, TILE_FOREST=1, TILE_ROCK=2, TILE_ASH=3, TILE_PATH=4;
+const world = Array.from({length: H}, () => new Uint8Array(W).fill(TILE_GRASS));
+
+// Patch in terrain variation
+for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
+  const r = rand();
+  if (r < 0.10) world[y][x] = TILE_FOREST;
+  else if (r < 0.16) world[y][x] = TILE_ROCK;
+  else if (r < 0.20) world[y][x] = TILE_ASH;
+  // Light grass scatter
+  world[y][x]; // keep
+}
+
+// Resource nodes spawned on matching tiles
+const nodes = [];
+for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
+  const t = world[y][x];
+  if (t===TILE_FOREST && rand()<0.6) nodes.push({x,y,type:'wood', hp:3});
+  if (t===TILE_ROCK   && rand()<0.7) nodes.push({x,y,type:'stone',hp:3});
+  if (t===TILE_ASH    && rand()<0.5) nodes.push({x,y,type:'ash',  hp:2});
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+const state = {
+  player: { x: (W>>1)*T + T/2, y: (H>>1)*T + T/2, spd: 2.2, facing: 'down' },
+  keys:   {},
+  res:    { wood: 0, stone: 0, ash: 0 },
+  structures: [],
+  buildMode:  null,    // null | 'campfire' | 'foundation' | 'wall' | 'pen'
+  mouse:      { x: 0, y: 0 },
+  tick:       0,
+  log:        '',
+};
+
+const BUILD = {
+  campfire:   { cost: {wood:2,stone:1}, label:'CAMPFIRE'   },
+  foundation: { cost: {wood:3},         label:'FOUNDATION' },
+  wall:       { cost: {wood:2},         label:'WALL'       },
+  pen:        { cost: {wood:4,stone:2}, label:'CREATURE PEN'},
+};
+
+// ── INPUT ────────────────────────────────────────────────────────────────────
+window.addEventListener('keydown', e => {
+  state.keys[e.key.toLowerCase()] = true;
+
+  if (e.key === '1') enterBuild('campfire');
+  if (e.key === '2') enterBuild('foundation');
+  if (e.key === '3') enterBuild('wall');
+  if (e.key === '4') enterBuild('pen');
+  if (e.key === 'Escape') { state.buildMode = null; setMode('— EXPLORE —'); }
+  if (e.key.toLowerCase() === 'e') gather();
+  e.preventDefault();
+});
+window.addEventListener('keyup',  e => { state.keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('mousemove', e => {
+  const r = canvas.getBoundingClientRect();
+  state.mouse.x = e.clientX - r.left;
+  state.mouse.y = e.clientY - r.top;
+});
+canvas.addEventListener('click', e => {
+  if (!state.buildMode) return;
+  const mx = Math.floor(state.mouse.x / T);
+  const my = Math.floor(state.mouse.y / T);
+  place(state.buildMode, mx, my);
+});
+
+// ── BUILD HELPERS ─────────────────────────────────────────────────────────────
+function enterBuild(type) {
+  const b = BUILD[type];
+  const cost = Object.entries(b.cost).map(([k,v])=>`${v} ${k}`).join(', ');
+  state.buildMode = type;
+  setMode(`BUILD: ${b.label} (${cost})`);
+  log(`Place ${b.label} — costs ${cost}`);
+}
+
+function canAfford(cost) {
+  for (const [k,v] of Object.entries(cost)) if (state.res[k] < v) return false;
+  return true;
+}
+
+function place(type, tx, ty) {
+  const b = BUILD[type];
+  if (!canAfford(b.cost)) { log(`Need: ${Object.entries(b.cost).map(([k,v])=>`${v} ${k}`).join(', ')}`); return; }
+  if (state.structures.find(s=>s.tx===tx&&s.ty===ty)) { log('Tile occupied'); return; }
+  for (const [k,v] of Object.entries(b.cost)) state.res[k] -= v;
+  state.structures.push({type, tx, ty, placed: state.tick});
+  log(`${b.label} placed`);
+  updateHUD();
+}
+
+function gather() {
+  const px = state.player.x, py = state.player.y;
+  let closest = null, dist = 9999;
+  for (const n of nodes) {
+    if (n.hp <= 0) continue;
+    const nx = n.x*T+T/2, ny = n.y*T+T/2;
+    const d = Math.hypot(px-nx, py-ny);
+    if (d < T*1.6 && d < dist) { dist=d; closest=n; }
+  }
+  if (!closest) { log('Nothing nearby to gather'); return; }
+  closest.hp--;
+  state.res[closest.type]++;
+  if (closest.hp <= 0) log(`${closest.type} depleted`);
+  else log(`Gathered 1 ${closest.type} (${closest.hp} left)`);
+  updateHUD();
+}
+
+// ── UPDATE ───────────────────────────────────────────────────────────────────
+function update() {
+  state.tick++;
+  const p = state.player;
+  const spd = state.spd || p.spd;
+  let dx=0, dy=0;
+  if (state.keys['w']||state.keys['arrowup'])    { dy=-spd; p.facing='up';    }
+  if (state.keys['s']||state.keys['arrowdown'])   { dy= spd; p.facing='down';  }
+  if (state.keys['a']||state.keys['arrowleft'])   { dx=-spd; p.facing='left';  }
+  if (state.keys['d']||state.keys['arrowright'])  { dx= spd; p.facing='right'; }
+  if (dx&&dy) { dx*=0.707; dy*=0.707; }
+  p.x = Math.max(8, Math.min(canvas.width-8,  p.x+dx));
+  p.y = Math.max(8, Math.min(canvas.height-8, p.y+dy));
+}
+
+// ── DRAW ──────────────────────────────────────────────────────────────────────
+const TILE_COLOR = [PAL.grass, PAL.forest, PAL.rock, PAL.ash, PAL.path];
+const TILE_COLOR2= [PAL.grassLight, PAL.forest, '#453f3a', PAL.ashLight, PAL.path];
+
+function drawWorld() {
+  for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
+    const t = world[y][x];
+    ctx.fillStyle = ((x+y)%2===0) ? TILE_COLOR[t] : TILE_COLOR2[t];
+    ctx.fillRect(x*T, y*T, T, T);
+  }
+}
+
+function drawGrid() {
+  ctx.strokeStyle = PAL.grid;
+  ctx.lineWidth = 1;
+  for (let x=0; x<=W; x++) { ctx.beginPath(); ctx.moveTo(x*T,0); ctx.lineTo(x*T,H*T); ctx.stroke(); }
+  for (let y=0; y<=H; y++) { ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
+}
+
+function drawNodes() {
+  for (const n of nodes) {
+    if (n.hp <= 0) continue;
+    const x=n.x*T, y=n.y*T;
+    if (n.type==='wood') {
+      ctx.fillStyle='#2a5a1a';
+      ctx.beginPath(); ctx.arc(x+T/2,y+T*0.55,T*0.35,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#4a3a1a'; ctx.fillRect(x+T*0.42,y+T*0.7,T*0.16,T*0.28);
+      // hp dots
+      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#6aaa3a'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
+    } else if (n.type==='stone') {
+      ctx.fillStyle='#5a5550';
+      ctx.beginPath(); ctx.roundRect(x+T*0.15,y+T*0.25,T*0.7,T*0.55,4); ctx.fill();
+      ctx.fillStyle='#7a7570'; ctx.beginPath(); ctx.roundRect(x+T*0.2,y+T*0.28,T*0.35,T*0.22,3); ctx.fill();
+      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#9a9590'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
+    } else if (n.type==='ash') {
+      ctx.fillStyle='#3a3028';
+      for (let i=0;i<5;i++) { ctx.beginPath(); ctx.arc(x+T*0.2+i*T*0.15,y+T*(0.4+i%2*0.15),T*0.1,0,Math.PI*2); ctx.fill(); }
+      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#6a5a48'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
+    }
+  }
+}
+
+function drawStructures() {
+  for (const s of state.structures) {
+    const x=s.tx*T, y=s.ty*T;
+    if (s.type==='campfire') {
+      ctx.fillStyle='#3a3020'; ctx.beginPath(); ctx.arc(x+T/2,y+T*0.65,T*0.25,0,Math.PI*2); ctx.fill();
+      const flicker = Math.sin(state.tick*0.18)*0.15;
+      ctx.fillStyle=PAL.fire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.2+flicker*T); ctx.lineTo(x+T*0.3,y+T*0.65); ctx.lineTo(x+T*0.7,y+T*0.65); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=PAL.campfire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.32+flicker*T); ctx.lineTo(x+T*0.38,y+T*0.65); ctx.lineTo(x+T*0.62,y+T*0.65); ctx.closePath(); ctx.fill();
+      // light glow
+      const g = ctx.createRadialGradient(x+T/2,y+T/2,0,x+T/2,y+T/2,T*1.5);
+      g.addColorStop(0,'rgba(255,130,0,0.12)'); g.addColorStop(1,'rgba(255,130,0,0)');
+      ctx.fillStyle=g; ctx.fillRect(x-T,y-T,T*3,T*3);
+    } else if (s.type==='foundation') {
+      ctx.fillStyle=PAL.foundation; ctx.fillRect(x+2,y+2,T-4,T-4);
+      ctx.strokeStyle='#9a8a5a'; ctx.lineWidth=1; ctx.strokeRect(x+4,y+4,T-8,T-8);
+    } else if (s.type==='wall') {
+      ctx.fillStyle=PAL.wall; ctx.fillRect(x+4,y+2,T-8,T-4);
+      ctx.fillStyle='#9a8a6a'; ctx.fillRect(x+6,y+4,T-12,4);
+    } else if (s.type==='pen') {
+      ctx.strokeStyle=PAL.pen; ctx.lineWidth=3; ctx.strokeRect(x+3,y+3,T-6,T-6);
+      ctx.fillStyle=PAL.penPost;
+      ctx.fillRect(x+1,y+1,5,5); ctx.fillRect(x+T-6,y+1,5,5);
+      ctx.fillRect(x+1,y+T-6,5,5); ctx.fillRect(x+T-6,y+T-6,5,5);
+    }
+  }
+}
+
+function drawGatherRadius() {
+  const p = state.player;
+  ctx.strokeStyle='rgba(200,200,150,0.15)';
+  ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  ctx.beginPath(); ctx.arc(p.x,p.y,T*1.6,0,Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPlayer() {
+  const p = state.player;
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+9,7,3,0,0,Math.PI*2); ctx.fill();
+  // Body
+  ctx.fillStyle='#5a4a2a'; ctx.beginPath(); ctx.roundRect(p.x-5,p.y-6,10,12,2); ctx.fill();
+  // Head
+  ctx.fillStyle=PAL.player; ctx.beginPath(); ctx.arc(p.x,p.y-9,6,0,Math.PI*2); ctx.fill();
+  // Eyes based on facing
+  ctx.fillStyle='#1a1208';
+  if (p.facing==='down')  { ctx.fillRect(p.x-3,p.y-11,2,2); ctx.fillRect(p.x+1,p.y-11,2,2); }
+  if (p.facing==='up')    { ctx.fillRect(p.x-3,p.y-8,2,2);  ctx.fillRect(p.x+1,p.y-8,2,2);  }
+  if (p.facing==='right') { ctx.fillRect(p.x+2,p.y-10,2,2); ctx.fillRect(p.x+2,p.y-7,2,2);  }
+  if (p.facing==='left')  { ctx.fillRect(p.x-4,p.y-10,2,2); ctx.fillRect(p.x-4,p.y-7,2,2);  }
+}
+
+function drawBuildGhost() {
+  if (!state.buildMode) return;
+  const mx = Math.floor(state.mouse.x/T);
+  const my = Math.floor(state.mouse.y/T);
+  const b = BUILD[state.buildMode];
+  const canPlace = canAfford(b.cost) && !state.structures.find(s=>s.tx===mx&&s.ty===my);
+  ctx.globalAlpha = 0.55;
+  ctx.fillStyle = canPlace ? '#6a8a4a' : '#8a3a2a';
+  ctx.fillRect(mx*T+2,my*T+2,T-4,T-4);
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = canPlace ? '#aada7a' : '#da7a5a';
+  ctx.lineWidth=1; ctx.strokeRect(mx*T+2,my*T+2,T-4,T-4);
+}
+
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawWorld();
+  drawGrid();
+  drawNodes();
+  drawStructures();
+  drawGatherRadius();
+  drawBuildGhost();
+  drawPlayer();
+}
+
+// ── HUD / LOG ────────────────────────────────────────────────────────────────
+function updateHUD() {
+  document.getElementById('r-wood').textContent  = `Wood: ${state.res.wood}`;
+  document.getElementById('r-stone').textContent = `Stone: ${state.res.stone}`;
+  document.getElementById('r-ash').textContent   = `Ash: ${state.res.ash}`;
+}
+function setMode(t) { document.getElementById('mode-label').textContent = t; }
+function log(msg) {
+  document.getElementById('log').textContent = msg;
+  state.log = msg;
+}
+
+// ── LOOP ──────────────────────────────────────────────────────────────────────
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
