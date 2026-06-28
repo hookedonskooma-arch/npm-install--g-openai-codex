@@ -2,17 +2,21 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Ashen Frontier — Phase 1 Prototype</title>
+<title>Ashen Frontier — Phase 1 + Capture Loop</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0d0d0d; color: #e8d9b0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; }
-  #hud { width: 800px; display: flex; gap: 16px; padding: 8px 12px; background: rgba(0,0,0,0.7); border: 1px solid #3a3020; border-bottom: none; font-size: 13px; }
+  body { background: #0d0d0d; color: #e8d9b0; font-family: 'Courier New', monospace;
+         display: flex; flex-direction: column; align-items: center; justify-content: center;
+         height: 100vh; overflow: hidden; }
+  #hud { width: 800px; display: flex; gap: 14px; padding: 7px 12px;
+         background: rgba(0,0,0,0.75); border: 1px solid #3a3020; border-bottom: none; font-size: 12px; }
   .res { display: flex; align-items: center; gap: 5px; }
-  .res-icon { width: 12px; height: 12px; border-radius: 2px; }
+  .res-icon { width: 11px; height: 11px; border-radius: 2px; flex-shrink:0; }
   #canvas { display: block; border: 1px solid #3a3020; cursor: crosshair; }
-  #bar { width: 800px; display: flex; gap: 8px; padding: 7px 12px; background: rgba(0,0,0,0.7); border: 1px solid #3a3020; border-top: none; font-size: 11px; color: #8a7a5a; }
-  .key { background: #2a2218; border: 1px solid #5a4a2a; padding: 2px 6px; border-radius: 3px; color: #c8b880; }
-  #log { width: 800px; padding: 4px 12px; font-size: 11px; color: #6a8a5a; height: 20px; }
+  #bar { width: 800px; display: flex; gap: 7px; flex-wrap: wrap; padding: 6px 12px;
+         background: rgba(0,0,0,0.75); border: 1px solid #3a3020; border-top: none; font-size: 10px; color: #8a7a5a; }
+  .key { background: #2a2218; border: 1px solid #5a4a2a; padding: 1px 5px; border-radius: 3px; color: #c8b880; }
+  #log { width: 800px; padding: 3px 12px; font-size: 11px; color: #6a8a5a; height: 18px; }
 </style>
 </head>
 <body>
@@ -21,16 +25,18 @@
   <div class="res"><div class="res-icon" style="background:#7a5a2a"></div><span id="r-wood">Wood: 0</span></div>
   <div class="res"><div class="res-icon" style="background:#888"></div><span id="r-stone">Stone: 0</span></div>
   <div class="res"><div class="res-icon" style="background:#4a3a2a"></div><span id="r-ash">Ash: 0</span></div>
+  <div class="res" style="margin-left:8px; color:#7aaa5a"><div class="res-icon" style="background:#3a7a2a"></div><span id="r-tamed">Tamed: 0/0</span></div>
   <div style="margin-left:auto" id="mode-label">— EXPLORE —</div>
 </div>
 <canvas id="canvas" width="800" height="560"></canvas>
 <div id="bar">
   <span><span class="key">WASD</span> Move</span>
   <span><span class="key">E</span> Gather</span>
-  <span><span class="key">1</span> Campfire (2w+1s)</span>
-  <span><span class="key">2</span> Foundation (3w)</span>
-  <span><span class="key">3</span> Wall (2w)</span>
-  <span><span class="key">4</span> Creature Pen (4w+2s)</span>
+  <span><span class="key">F</span> Capture (near creature + pen built)</span>
+  <span><span class="key">1</span> Campfire 2w+1s</span>
+  <span><span class="key">2</span> Foundation 3w</span>
+  <span><span class="key">3</span> Wall 2w</span>
+  <span><span class="key">4</span> Creature Pen 4w+2s</span>
   <span><span class="key">Esc</span> Cancel</span>
 </div>
 <div id="log"></div>
@@ -38,210 +44,336 @@
 <script>
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
-const T = 32; // tile size px
-const W = Math.floor(canvas.width  / T); // 25 tiles wide
-const H = Math.floor(canvas.height / T); // 17 tiles tall
+const T = 32;
+const W = Math.floor(canvas.width  / T); // 25
+const H = Math.floor(canvas.height / T); // 17
 
 // ── PALETTE ──────────────────────────────────────────────────────────────────
 const PAL = {
-  grass:      '#2a3a1e',
-  grassLight: '#304522',
-  forest:     '#1e3a1e',
-  rock:       '#3a3530',
-  ash:        '#2a2520',
-  ashLight:   '#352e28',
-  path:       '#3a3020',
-  player:     '#e8d9b0',
-  campfire:   '#c84a00',
-  fire:       '#ff8a00',
-  foundation: '#6a5a3a',
-  wall:       '#7a6a4a',
-  pen:        '#4a3a1a',
-  penPost:    '#7a5a2a',
-  grid:       'rgba(255,255,200,0.04)',
+  grass:'#2a3a1e', grassL:'#304522', forest:'#1e3a1e', rock:'#3a3530',
+  ash:'#2a2520', ashL:'#352e28', path:'#3a3020', player:'#e8d9b0',
+  campfire:'#c84a00', fire:'#ff8a00', foundation:'#6a5a3a', wall:'#7a6a4a',
+  pen:'#4a3a1a', penPost:'#7a5a2a', grid:'rgba(255,255,200,0.04)',
+  stoneshell:'#7a8a6a', shellMoss:'#3a6a2a', shellDark:'#5a6a4a',
+  stunRing:'rgba(200,220,255,0.7)', tamedRing:'rgba(120,220,100,0.6)',
 };
 
-// ── WORLD GENERATION ─────────────────────────────────────────────────────────
+// ── RNG ───────────────────────────────────────────────────────────────────────
 function rng(seed) {
   let s = seed;
-  return () => { s ^= s<<13; s ^= s>>17; s ^= s<<5; return ((s>>>0)/0xffffffff); };
+  return () => { s ^= s<<13; s ^= s>>17; s ^= s<<5; return (s>>>0)/0xffffffff; };
 }
 const rand = rng(0xAF);
 
-const TILE_GRASS=0, TILE_FOREST=1, TILE_ROCK=2, TILE_ASH=3, TILE_PATH=4;
-const world = Array.from({length: H}, () => new Uint8Array(W).fill(TILE_GRASS));
-
-// Patch in terrain variation
-for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
-  const r = rand();
-  if (r < 0.10) world[y][x] = TILE_FOREST;
-  else if (r < 0.16) world[y][x] = TILE_ROCK;
-  else if (r < 0.20) world[y][x] = TILE_ASH;
-  // Light grass scatter
-  world[y][x]; // keep
+// ── WORLD ────────────────────────────────────────────────────────────────────
+const TILE_GRASS=0,TILE_FOREST=1,TILE_ROCK=2,TILE_ASH=3;
+const world = Array.from({length:H}, () => new Uint8Array(W).fill(TILE_GRASS));
+for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+  const r=rand();
+  if (r<0.10) world[y][x]=TILE_FOREST;
+  else if (r<0.16) world[y][x]=TILE_ROCK;
+  else if (r<0.20) world[y][x]=TILE_ASH;
 }
 
-// Resource nodes spawned on matching tiles
-const nodes = [];
-for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
-  const t = world[y][x];
-  if (t===TILE_FOREST && rand()<0.6) nodes.push({x,y,type:'wood', hp:3});
-  if (t===TILE_ROCK   && rand()<0.7) nodes.push({x,y,type:'stone',hp:3});
-  if (t===TILE_ASH    && rand()<0.5) nodes.push({x,y,type:'ash',  hp:2});
+const nodes=[];
+for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+  const t=world[y][x];
+  if (t===TILE_FOREST&&rand()<0.6) nodes.push({x,y,type:'wood', hp:3});
+  if (t===TILE_ROCK  &&rand()<0.7) nodes.push({x,y,type:'stone',hp:3});
+  if (t===TILE_ASH   &&rand()<0.5) nodes.push({x,y,type:'ash',  hp:2});
+}
+
+// ── CREATURE STATES ───────────────────────────────────────────────────────────
+const CS = { IDLE:0, ALERT:1, FLEE:2, STUNNED:3, TAMED:4, PENNED:5 };
+
+// Spawn Terra Stoneshells in corners / edges away from player start
+const creatures = [];
+const SPAWN_POINTS = [
+  [3,3],[W-4,3],[3,H-4],[W-4,H-4],[6,H/2|0],[W-7,H/2|0]
+];
+for (let i=0;i<4;i++) {
+  const [sx,sy] = SPAWN_POINTS[i];
+  creatures.push({
+    id: i,
+    x: sx*T+T/2, y: sy*T+T/2,
+    state: CS.IDLE,
+    facing: 'down',
+    // wander
+    wdx: 0, wdy: 0, wTimer: 0,
+    // stun
+    stunTick: 0, stunDur: 150, // 2.5s at 60fps
+    // tame
+    penTx: -1, penTy: -1,
+    // moss patch offsets (random per creature for visual variety)
+    mossSeeds: [rand(),rand(),rand(),rand()],
+    name: 'Terra Stoneshell',
+    spd: 0.7,
+  });
 }
 
 // ── STATE ────────────────────────────────────────────────────────────────────
 const state = {
-  player: { x: (W>>1)*T + T/2, y: (H>>1)*T + T/2, spd: 2.2, facing: 'down' },
-  keys:   {},
-  res:    { wood: 0, stone: 0, ash: 0 },
-  structures: [],
-  buildMode:  null,    // null | 'campfire' | 'foundation' | 'wall' | 'pen'
-  mouse:      { x: 0, y: 0 },
-  tick:       0,
-  log:        '',
+  player:{ x:(W>>1)*T+T/2, y:(H>>1)*T+T/2, spd:2.2, facing:'down' },
+  keys:{}, res:{wood:0,stone:0,ash:0},
+  structures:[], buildMode:null, mouse:{x:0,y:0}, tick:0,
 };
 
 const BUILD = {
-  campfire:   { cost: {wood:2,stone:1}, label:'CAMPFIRE'   },
-  foundation: { cost: {wood:3},         label:'FOUNDATION' },
-  wall:       { cost: {wood:2},         label:'WALL'       },
-  pen:        { cost: {wood:4,stone:2}, label:'CREATURE PEN'},
+  campfire:  {cost:{wood:2,stone:1}, label:'CAMPFIRE'},
+  foundation:{cost:{wood:3},         label:'FOUNDATION'},
+  wall:      {cost:{wood:2},         label:'WALL'},
+  pen:       {cost:{wood:4,stone:2}, label:'CREATURE PEN'},
 };
 
 // ── INPUT ────────────────────────────────────────────────────────────────────
 window.addEventListener('keydown', e => {
   state.keys[e.key.toLowerCase()] = true;
-
-  if (e.key === '1') enterBuild('campfire');
-  if (e.key === '2') enterBuild('foundation');
-  if (e.key === '3') enterBuild('wall');
-  if (e.key === '4') enterBuild('pen');
-  if (e.key === 'Escape') { state.buildMode = null; setMode('— EXPLORE —'); }
-  if (e.key.toLowerCase() === 'e') gather();
+  if (e.key==='1') enterBuild('campfire');
+  if (e.key==='2') enterBuild('foundation');
+  if (e.key==='3') enterBuild('wall');
+  if (e.key==='4') enterBuild('pen');
+  if (e.key==='Escape') { state.buildMode=null; setMode('— EXPLORE —'); }
+  if (e.key.toLowerCase()==='e') gather();
+  if (e.key.toLowerCase()==='f') capture();
   e.preventDefault();
 });
-window.addEventListener('keyup',  e => { state.keys[e.key.toLowerCase()] = false; });
+window.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()]=false; });
 canvas.addEventListener('mousemove', e => {
-  const r = canvas.getBoundingClientRect();
-  state.mouse.x = e.clientX - r.left;
-  state.mouse.y = e.clientY - r.top;
+  const r=canvas.getBoundingClientRect();
+  state.mouse.x=e.clientX-r.left; state.mouse.y=e.clientY-r.top;
 });
 canvas.addEventListener('click', e => {
   if (!state.buildMode) return;
-  const mx = Math.floor(state.mouse.x / T);
-  const my = Math.floor(state.mouse.y / T);
-  place(state.buildMode, mx, my);
+  place(state.buildMode, Math.floor(state.mouse.x/T), Math.floor(state.mouse.y/T));
 });
 
-// ── BUILD HELPERS ─────────────────────────────────────────────────────────────
+// ── BUILD ────────────────────────────────────────────────────────────────────
 function enterBuild(type) {
-  const b = BUILD[type];
-  const cost = Object.entries(b.cost).map(([k,v])=>`${v} ${k}`).join(', ');
-  state.buildMode = type;
-  setMode(`BUILD: ${b.label} (${cost})`);
-  log(`Place ${b.label} — costs ${cost}`);
+  const b=BUILD[type];
+  const cost=Object.entries(b.cost).map(([k,v])=>`${v} ${k}`).join(', ');
+  state.buildMode=type; setMode(`BUILD: ${b.label} (${cost})`);
+  log(`Place ${b.label} — ${cost}`);
 }
-
 function canAfford(cost) {
-  for (const [k,v] of Object.entries(cost)) if (state.res[k] < v) return false;
+  for (const [k,v] of Object.entries(cost)) if (state.res[k]<v) return false;
   return true;
 }
-
-function place(type, tx, ty) {
-  const b = BUILD[type];
+function place(type,tx,ty) {
+  const b=BUILD[type];
   if (!canAfford(b.cost)) { log(`Need: ${Object.entries(b.cost).map(([k,v])=>`${v} ${k}`).join(', ')}`); return; }
   if (state.structures.find(s=>s.tx===tx&&s.ty===ty)) { log('Tile occupied'); return; }
-  for (const [k,v] of Object.entries(b.cost)) state.res[k] -= v;
-  state.structures.push({type, tx, ty, placed: state.tick});
+  for (const [k,v] of Object.entries(b.cost)) state.res[k]-=v;
+  state.structures.push({type,tx,ty,placed:state.tick});
   log(`${b.label} placed`);
   updateHUD();
 }
 
+// ── GATHER ───────────────────────────────────────────────────────────────────
 function gather() {
-  const px = state.player.x, py = state.player.y;
-  let closest = null, dist = 9999;
+  const {x:px,y:py}=state.player;
+  let closest=null, dist=9999;
   for (const n of nodes) {
-    if (n.hp <= 0) continue;
-    const nx = n.x*T+T/2, ny = n.y*T+T/2;
-    const d = Math.hypot(px-nx, py-ny);
-    if (d < T*1.6 && d < dist) { dist=d; closest=n; }
+    if (n.hp<=0) continue;
+    const d=Math.hypot(px-n.x*T-T/2, py-n.y*T-T/2);
+    if (d<T*1.6&&d<dist) { dist=d; closest=n; }
   }
   if (!closest) { log('Nothing nearby to gather'); return; }
   closest.hp--;
   state.res[closest.type]++;
-  if (closest.hp <= 0) log(`${closest.type} depleted`);
-  else log(`Gathered 1 ${closest.type} (${closest.hp} left)`);
+  log(closest.hp<=0 ? `${closest.type} depleted` : `Gathered 1 ${closest.type} (${closest.hp} left)`);
   updateHUD();
+}
+
+// ── CAPTURE ──────────────────────────────────────────────────────────────────
+function hasPen() { return state.structures.some(s=>s.type==='pen'); }
+
+function capture() {
+  const {x:px,y:py}=state.player;
+  // Find nearest non-tamed creature within capture range
+  let target=null, dist=9999;
+  for (const c of creatures) {
+    if (c.state===CS.TAMED||c.state===CS.PENNED||c.state===CS.STUNNED) continue;
+    const d=Math.hypot(px-c.x, py-c.y);
+    if (d<T*2 && d<dist) { dist=d; target=c; }
+  }
+  if (!target) { log('No creature in range (get closer)'); return; }
+  if (!hasPen()) { log('Build a Creature Pen first (press 4)'); return; }
+  // Stun it
+  target.state=CS.STUNNED;
+  target.stunTick=state.tick;
+  log(`Stunning ${target.name}... hold still!`);
+}
+
+// ── CREATURE AI ──────────────────────────────────────────────────────────────
+function findPenFor(c) {
+  // Assign the nearest unoccupied pen tile
+  const occupied = new Set(creatures.filter(o=>o.penTx>=0).map(o=>`${o.penTx},${o.penTy}`));
+  let best=null, bd=9999;
+  for (const s of state.structures) {
+    if (s.type!=='pen') continue;
+    const key=`${s.tx},${s.ty}`;
+    if (occupied.has(key)) continue;
+    const d=Math.hypot(c.x-s.tx*T-T/2, c.y-s.ty*T-T/2);
+    if (d<bd) { bd=d; best=s; }
+  }
+  return best;
+}
+
+function updateCreature(c) {
+  const {x:px,y:py}=state.player;
+  const dpx=px-c.x, dpy=py-c.y;
+  const dp=Math.hypot(dpx,dpy);
+
+  if (c.state===CS.STUNNED) {
+    // Shake in place slightly, then tame after duration
+    c.x += (Math.random()-0.5)*0.4;
+    c.y += (Math.random()-0.5)*0.4;
+    if (state.tick - c.stunTick >= c.stunDur) {
+      c.state=CS.TAMED;
+      // Assign a pen if one exists
+      const pen=findPenFor(c);
+      if (pen) { c.penTx=pen.tx; c.penTy=pen.ty; }
+      log(`${c.name} tamed! It will follow you.`);
+      updateHUD();
+    }
+    return;
+  }
+
+  if (c.state===CS.TAMED) {
+    // If near its pen, transition to PENNED
+    if (c.penTx>=0) {
+      const px2=c.penTx*T+T/2, py2=c.penTy*T+T/2;
+      const dpn=Math.hypot(c.x-px2, c.y-py2);
+      // Head to pen if player is also near the pen
+      const playerNearPen = Math.hypot(px-px2,py-py2) < T*3;
+      if (playerNearPen && dpn < T*0.5) { c.state=CS.PENNED; return; }
+      if (playerNearPen && dpn > T*0.5) {
+        // Walk to pen
+        const d=Math.hypot(c.x-px2,c.y-py2)||1;
+        c.x += (px2-c.x)/d * c.spd;
+        c.y += (py2-c.y)/d * c.spd;
+        c.facing = Math.abs(px2-c.x)>Math.abs(py2-c.y) ? (px2>c.x?'right':'left') : (py2>c.y?'down':'up');
+        return;
+      }
+    }
+    // Follow player, maintain 2T distance
+    if (dp > T*2.2) {
+      c.x += dpx/dp * c.spd;
+      c.y += dpy/dp * c.spd;
+      c.facing = Math.abs(dpx)>Math.abs(dpy) ? (dpx>0?'right':'left') : (dpy>0?'down':'up');
+    }
+    return;
+  }
+
+  if (c.state===CS.PENNED) {
+    // Wander slowly within pen bounds (±0.4T from center)
+    if (c.wTimer<=0) {
+      c.wdx=(Math.random()-0.5)*0.3; c.wdy=(Math.random()-0.5)*0.3;
+      c.wTimer=60+Math.random()*90;
+    }
+    c.wTimer--;
+    const cx=c.penTx*T+T/2, cy=c.penTy*T+T/2;
+    const nx=c.x+c.wdx, ny=c.y+c.wdy;
+    if (Math.hypot(nx-cx,ny-cy)<T*0.45) { c.x=nx; c.y=ny; }
+    else { c.wdx*=-1; c.wdy*=-1; }
+    return;
+  }
+
+  // ── WILD STATES ────────────────────────────────────────────────────────────
+  // Transition based on player distance
+  if (dp < T*1.5)       c.state=CS.FLEE;
+  else if (dp < T*3.5)  c.state=CS.ALERT;
+  else                   c.state=CS.IDLE;
+
+  if (c.state===CS.FLEE) {
+    // Back away from player
+    const d=dp||1;
+    c.x -= dpx/d * c.spd * 1.3;
+    c.y -= dpy/d * c.spd * 1.3;
+    c.x=Math.max(8,Math.min(canvas.width-8,c.x));
+    c.y=Math.max(8,Math.min(canvas.height-8,c.y));
+    c.facing = Math.abs(dpx)>Math.abs(dpy) ? (dpx<0?'right':'left') : (dpy<0?'down':'up');
+    return;
+  }
+
+  if (c.state===CS.ALERT) {
+    // Face player, don't move
+    c.facing = Math.abs(dpx)>Math.abs(dpy) ? (dpx>0?'right':'left') : (dpy>0?'down':'up');
+    return;
+  }
+
+  // IDLE: slow random wander
+  if (c.wTimer<=0) {
+    const angle = Math.random()*Math.PI*2;
+    c.wdx = Math.cos(angle)*c.spd*0.6;
+    c.wdy = Math.sin(angle)*c.spd*0.6;
+    c.wTimer = 80 + Math.random()*120;
+    c.facing = Math.abs(c.wdx)>Math.abs(c.wdy) ? (c.wdx>0?'right':'left') : (c.wdy>0?'down':'up');
+  }
+  c.wTimer--;
+  c.x = Math.max(T, Math.min(canvas.width-T,  c.x+c.wdx));
+  c.y = Math.max(T, Math.min(canvas.height-T, c.y+c.wdy));
 }
 
 // ── UPDATE ───────────────────────────────────────────────────────────────────
 function update() {
   state.tick++;
-  const p = state.player;
-  const spd = state.spd || p.spd;
-  let dx=0, dy=0;
-  if (state.keys['w']||state.keys['arrowup'])    { dy=-spd; p.facing='up';    }
-  if (state.keys['s']||state.keys['arrowdown'])   { dy= spd; p.facing='down';  }
-  if (state.keys['a']||state.keys['arrowleft'])   { dx=-spd; p.facing='left';  }
-  if (state.keys['d']||state.keys['arrowright'])  { dx= spd; p.facing='right'; }
+  const p=state.player;
+  let dx=0,dy=0;
+  if (state.keys['w']||state.keys['arrowup'])   { dy=-p.spd; p.facing='up';    }
+  if (state.keys['s']||state.keys['arrowdown'])  { dy= p.spd; p.facing='down';  }
+  if (state.keys['a']||state.keys['arrowleft'])  { dx=-p.spd; p.facing='left';  }
+  if (state.keys['d']||state.keys['arrowright']) { dx= p.spd; p.facing='right'; }
   if (dx&&dy) { dx*=0.707; dy*=0.707; }
-  p.x = Math.max(8, Math.min(canvas.width-8,  p.x+dx));
-  p.y = Math.max(8, Math.min(canvas.height-8, p.y+dy));
+  p.x=Math.max(8,Math.min(canvas.width-8,  p.x+dx));
+  p.y=Math.max(8,Math.min(canvas.height-8, p.y+dy));
+  for (const c of creatures) updateCreature(c);
 }
 
-// ── DRAW ──────────────────────────────────────────────────────────────────────
-const TILE_COLOR = [PAL.grass, PAL.forest, PAL.rock, PAL.ash, PAL.path];
-const TILE_COLOR2= [PAL.grassLight, PAL.forest, '#453f3a', PAL.ashLight, PAL.path];
+// ── DRAW WORLD ───────────────────────────────────────────────────────────────
+const TC  = ['#2a3a1e','#1e3a1e','#3a3530','#2a2520'];
+const TC2 = ['#304522','#1e3a1e','#453f3a','#352e28'];
 
 function drawWorld() {
-  for (let y=0; y<H; y++) for (let x=0; x<W; x++) {
-    const t = world[y][x];
-    ctx.fillStyle = ((x+y)%2===0) ? TILE_COLOR[t] : TILE_COLOR2[t];
-    ctx.fillRect(x*T, y*T, T, T);
+  for (let y=0;y<H;y++) for (let x=0;x<W;x++) {
+    const t=world[y][x];
+    ctx.fillStyle=((x+y)%2===0)?TC[t]:TC2[t];
+    ctx.fillRect(x*T,y*T,T,T);
   }
 }
-
 function drawGrid() {
-  ctx.strokeStyle = PAL.grid;
-  ctx.lineWidth = 1;
-  for (let x=0; x<=W; x++) { ctx.beginPath(); ctx.moveTo(x*T,0); ctx.lineTo(x*T,H*T); ctx.stroke(); }
-  for (let y=0; y<=H; y++) { ctx.beginPath(); ctx.moveTo(0,y*T); ctx.lineTo(W*T,y*T); ctx.stroke(); }
+  ctx.strokeStyle=PAL.grid; ctx.lineWidth=1;
+  for (let x=0;x<=W;x++){ctx.beginPath();ctx.moveTo(x*T,0);ctx.lineTo(x*T,H*T);ctx.stroke();}
+  for (let y=0;y<=H;y++){ctx.beginPath();ctx.moveTo(0,y*T);ctx.lineTo(W*T,y*T);ctx.stroke();}
 }
-
 function drawNodes() {
   for (const n of nodes) {
-    if (n.hp <= 0) continue;
-    const x=n.x*T, y=n.y*T;
+    if (n.hp<=0) continue;
+    const x=n.x*T,y=n.y*T;
     if (n.type==='wood') {
-      ctx.fillStyle='#2a5a1a';
-      ctx.beginPath(); ctx.arc(x+T/2,y+T*0.55,T*0.35,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle='#2a5a1a'; ctx.beginPath(); ctx.arc(x+T/2,y+T*0.55,T*0.35,0,Math.PI*2); ctx.fill();
       ctx.fillStyle='#4a3a1a'; ctx.fillRect(x+T*0.42,y+T*0.7,T*0.16,T*0.28);
-      // hp dots
-      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#6aaa3a'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
+      for (let i=0;i<n.hp;i++){ctx.fillStyle='#6aaa3a';ctx.beginPath();ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2);ctx.fill();}
     } else if (n.type==='stone') {
-      ctx.fillStyle='#5a5550';
-      ctx.beginPath(); ctx.roundRect(x+T*0.15,y+T*0.25,T*0.7,T*0.55,4); ctx.fill();
+      ctx.fillStyle='#5a5550'; ctx.beginPath(); ctx.roundRect(x+T*0.15,y+T*0.25,T*0.7,T*0.55,4); ctx.fill();
       ctx.fillStyle='#7a7570'; ctx.beginPath(); ctx.roundRect(x+T*0.2,y+T*0.28,T*0.35,T*0.22,3); ctx.fill();
-      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#9a9590'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
-    } else if (n.type==='ash') {
+      for (let i=0;i<n.hp;i++){ctx.fillStyle='#9a9590';ctx.beginPath();ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2);ctx.fill();}
+    } else {
       ctx.fillStyle='#3a3028';
-      for (let i=0;i<5;i++) { ctx.beginPath(); ctx.arc(x+T*0.2+i*T*0.15,y+T*(0.4+i%2*0.15),T*0.1,0,Math.PI*2); ctx.fill(); }
-      for (let i=0;i<n.hp;i++) { ctx.fillStyle='#6a5a48'; ctx.beginPath(); ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2); ctx.fill(); }
+      for (let i=0;i<5;i++){ctx.beginPath();ctx.arc(x+T*0.2+i*T*0.15,y+T*(0.4+i%2*0.15),T*0.1,0,Math.PI*2);ctx.fill();}
+      for (let i=0;i<n.hp;i++){ctx.fillStyle='#6a5a48';ctx.beginPath();ctx.arc(x+T*0.25+i*T*0.25,y+T*0.18,2,0,Math.PI*2);ctx.fill();}
     }
   }
 }
-
 function drawStructures() {
   for (const s of state.structures) {
-    const x=s.tx*T, y=s.ty*T;
+    const x=s.tx*T,y=s.ty*T;
     if (s.type==='campfire') {
       ctx.fillStyle='#3a3020'; ctx.beginPath(); ctx.arc(x+T/2,y+T*0.65,T*0.25,0,Math.PI*2); ctx.fill();
-      const flicker = Math.sin(state.tick*0.18)*0.15;
-      ctx.fillStyle=PAL.fire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.2+flicker*T); ctx.lineTo(x+T*0.3,y+T*0.65); ctx.lineTo(x+T*0.7,y+T*0.65); ctx.closePath(); ctx.fill();
-      ctx.fillStyle=PAL.campfire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.32+flicker*T); ctx.lineTo(x+T*0.38,y+T*0.65); ctx.lineTo(x+T*0.62,y+T*0.65); ctx.closePath(); ctx.fill();
-      // light glow
-      const g = ctx.createRadialGradient(x+T/2,y+T/2,0,x+T/2,y+T/2,T*1.5);
+      const fl=Math.sin(state.tick*0.18)*0.15;
+      ctx.fillStyle=PAL.fire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.2+fl*T); ctx.lineTo(x+T*0.3,y+T*0.65); ctx.lineTo(x+T*0.7,y+T*0.65); ctx.closePath(); ctx.fill();
+      ctx.fillStyle=PAL.campfire; ctx.beginPath(); ctx.moveTo(x+T/2,y+T*0.32+fl*T); ctx.lineTo(x+T*0.38,y+T*0.65); ctx.lineTo(x+T*0.62,y+T*0.65); ctx.closePath(); ctx.fill();
+      const g=ctx.createRadialGradient(x+T/2,y+T/2,0,x+T/2,y+T/2,T*1.5);
       g.addColorStop(0,'rgba(255,130,0,0.12)'); g.addColorStop(1,'rgba(255,130,0,0)');
       ctx.fillStyle=g; ctx.fillRect(x-T,y-T,T*3,T*3);
     } else if (s.type==='foundation') {
@@ -259,74 +391,153 @@ function drawStructures() {
   }
 }
 
+// ── DRAW CREATURE (Terra Stoneshell) ──────────────────────────────────────────
+function drawCreature(c) {
+  const {x,y,state:cs,mossSeeds,stunTick} = c;
+
+  // State ring
+  if (cs===CS.STUNNED) {
+    const prog = Math.min(1,(state.tick-stunTick)/c.stunDur);
+    ctx.strokeStyle=PAL.stunRing; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.arc(x,y,T*0.65,0,Math.PI*2*prog); ctx.stroke();
+    // spin stars
+    for (let i=0;i<3;i++) {
+      const a=(state.tick*0.12+i*Math.PI*2/3);
+      const sx=x+Math.cos(a)*T*0.55, sy=y+Math.sin(a)*T*0.35;
+      ctx.fillStyle='#aaccff'; ctx.beginPath(); ctx.arc(sx,sy,2,0,Math.PI*2); ctx.fill();
+    }
+  } else if (cs===CS.TAMED||cs===CS.PENNED) {
+    ctx.strokeStyle=PAL.tamedRing; ctx.lineWidth=1.5; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.arc(x,y,T*0.62,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  } else if (cs===CS.ALERT) {
+    ctx.strokeStyle='rgba(255,200,80,0.5)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(x,y,T*0.6,0,Math.PI*2); ctx.stroke();
+  }
+
+  // Shadow
+  ctx.fillStyle='rgba(0,0,0,0.22)';
+  ctx.beginPath(); ctx.ellipse(x,y+10,10,4,0,0,Math.PI*2); ctx.fill();
+
+  // Legs (4 stubs peeking out)
+  ctx.fillStyle='#5a6a4a';
+  ctx.beginPath(); ctx.ellipse(x-9,y+5, 5,3, -0.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x+9,y+5, 5,3,  0.4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x-8,y-3, 4,3, -0.3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x+8,y-3, 4,3,  0.3,0,Math.PI*2); ctx.fill();
+
+  // Shell base
+  ctx.fillStyle=PAL.shellDark;
+  ctx.beginPath(); ctx.ellipse(x,y,11,9,0,0,Math.PI*2); ctx.fill();
+
+  // Shell top — mossy dome
+  ctx.fillStyle=PAL.stoneshell;
+  ctx.beginPath(); ctx.ellipse(x,y-3,10,8,0,0,Math.PI*2); ctx.fill();
+
+  // Shell plates (darker lines)
+  ctx.strokeStyle='#4a5a3a'; ctx.lineWidth=0.8;
+  ctx.beginPath(); ctx.moveTo(x,y-11); ctx.lineTo(x,y+2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x-7,y-5); ctx.lineTo(x+7,y-5); ctx.stroke();
+
+  // Moss patches (position derived from mossSeeds)
+  ctx.fillStyle=PAL.shellMoss;
+  for (let i=0;i<4;i++) {
+    const ma=mossSeeds[i]*Math.PI*1.4-0.3;
+    const mr=mossSeeds[(i+1)%4]*3.5+2.5;
+    const mx2=x+Math.cos(ma)*mr, my2=y-3+Math.sin(ma)*mr*0.7;
+    ctx.beginPath(); ctx.ellipse(mx2,my2,2.5+mossSeeds[i]*1.5,1.5,ma,0,Math.PI*2); ctx.fill();
+  }
+
+  // Head
+  const hx = c.facing==='left' ? x-12 : c.facing==='right' ? x+12 : x;
+  const hy = c.facing==='up'   ? y-10  : c.facing==='down'  ? y+6  : y-2;
+  ctx.fillStyle='#6a7a5a'; ctx.beginPath(); ctx.ellipse(hx,hy,5,4,0,0,Math.PI*2); ctx.fill();
+
+  // Eye (yellow-green slit)
+  const ex = c.facing==='left'?hx-2 : c.facing==='right'?hx+2 : hx+2;
+  const ey = hy-1;
+  ctx.fillStyle='#b8d840'; ctx.beginPath(); ctx.arc(ex,ey,2,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#1a2a08'; ctx.beginPath(); ctx.ellipse(ex,ey,0.7,1.6,0,0,Math.PI*2); ctx.fill();
+
+  // State label above creature (ALERT / STUNNED only)
+  if (cs===CS.ALERT) {
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-12,y-22,24,10);
+    ctx.fillStyle='#ffcc44'; ctx.font='8px monospace'; ctx.textAlign='center';
+    ctx.fillText('!', x, y-14); ctx.textAlign='left';
+  }
+  if (cs===CS.STUNNED) {
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-16,y-22,32,10);
+    ctx.fillStyle='#aaddff'; ctx.font='7px monospace'; ctx.textAlign='center';
+    ctx.fillText('STUNNED', x, y-14); ctx.textAlign='left';
+  }
+  if (cs===CS.TAMED||cs===CS.PENNED) {
+    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(x-16,y-22,32,10);
+    ctx.fillStyle='#88ee66'; ctx.font='7px monospace'; ctx.textAlign='center';
+    ctx.fillText('TAMED', x, y-14); ctx.textAlign='left';
+  }
+}
+
+function drawCreatures() {
+  for (const c of creatures) drawCreature(c);
+}
+
+// ── DRAW PLAYER ───────────────────────────────────────────────────────────────
+function drawPlayer() {
+  const p=state.player;
+  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+9,7,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#5a4a2a'; ctx.beginPath(); ctx.roundRect(p.x-5,p.y-6,10,12,2); ctx.fill();
+  ctx.fillStyle=PAL.player; ctx.beginPath(); ctx.arc(p.x,p.y-9,6,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#1a1208';
+  if (p.facing==='down')  {ctx.fillRect(p.x-3,p.y-11,2,2);ctx.fillRect(p.x+1,p.y-11,2,2);}
+  if (p.facing==='up')    {ctx.fillRect(p.x-3,p.y-8,2,2); ctx.fillRect(p.x+1,p.y-8,2,2); }
+  if (p.facing==='right') {ctx.fillRect(p.x+2,p.y-10,2,2);ctx.fillRect(p.x+2,p.y-7,2,2); }
+  if (p.facing==='left')  {ctx.fillRect(p.x-4,p.y-10,2,2);ctx.fillRect(p.x-4,p.y-7,2,2); }
+  // Capture range indicator (only when a non-tamed creature is nearby)
+  const anyWild=creatures.some(c=>[CS.IDLE,CS.ALERT,CS.FLEE].includes(c.state)&&Math.hypot(p.x-c.x,p.y-c.y)<T*3);
+  if (anyWild) {
+    ctx.strokeStyle='rgba(180,220,255,0.2)'; ctx.lineWidth=1; ctx.setLineDash([2,4]);
+    ctx.beginPath(); ctx.arc(p.x,p.y,T*2,0,Math.PI*2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
 function drawGatherRadius() {
-  const p = state.player;
-  ctx.strokeStyle='rgba(200,200,150,0.15)';
-  ctx.lineWidth=1; ctx.setLineDash([3,4]);
+  const p=state.player;
+  ctx.strokeStyle='rgba(200,200,150,0.12)'; ctx.lineWidth=1; ctx.setLineDash([3,4]);
   ctx.beginPath(); ctx.arc(p.x,p.y,T*1.6,0,Math.PI*2); ctx.stroke();
   ctx.setLineDash([]);
 }
 
-function drawPlayer() {
-  const p = state.player;
-  // Shadow
-  ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.ellipse(p.x,p.y+9,7,3,0,0,Math.PI*2); ctx.fill();
-  // Body
-  ctx.fillStyle='#5a4a2a'; ctx.beginPath(); ctx.roundRect(p.x-5,p.y-6,10,12,2); ctx.fill();
-  // Head
-  ctx.fillStyle=PAL.player; ctx.beginPath(); ctx.arc(p.x,p.y-9,6,0,Math.PI*2); ctx.fill();
-  // Eyes based on facing
-  ctx.fillStyle='#1a1208';
-  if (p.facing==='down')  { ctx.fillRect(p.x-3,p.y-11,2,2); ctx.fillRect(p.x+1,p.y-11,2,2); }
-  if (p.facing==='up')    { ctx.fillRect(p.x-3,p.y-8,2,2);  ctx.fillRect(p.x+1,p.y-8,2,2);  }
-  if (p.facing==='right') { ctx.fillRect(p.x+2,p.y-10,2,2); ctx.fillRect(p.x+2,p.y-7,2,2);  }
-  if (p.facing==='left')  { ctx.fillRect(p.x-4,p.y-10,2,2); ctx.fillRect(p.x-4,p.y-7,2,2);  }
-}
-
 function drawBuildGhost() {
   if (!state.buildMode) return;
-  const mx = Math.floor(state.mouse.x/T);
-  const my = Math.floor(state.mouse.y/T);
-  const b = BUILD[state.buildMode];
-  const canPlace = canAfford(b.cost) && !state.structures.find(s=>s.tx===mx&&s.ty===my);
-  ctx.globalAlpha = 0.55;
-  ctx.fillStyle = canPlace ? '#6a8a4a' : '#8a3a2a';
-  ctx.fillRect(mx*T+2,my*T+2,T-4,T-4);
-  ctx.globalAlpha = 1;
-  ctx.strokeStyle = canPlace ? '#aada7a' : '#da7a5a';
-  ctx.lineWidth=1; ctx.strokeRect(mx*T+2,my*T+2,T-4,T-4);
+  const mx=Math.floor(state.mouse.x/T), my=Math.floor(state.mouse.y/T);
+  const b=BUILD[state.buildMode];
+  const ok=canAfford(b.cost)&&!state.structures.find(s=>s.tx===mx&&s.ty===my);
+  ctx.globalAlpha=0.55; ctx.fillStyle=ok?'#6a8a4a':'#8a3a2a'; ctx.fillRect(mx*T+2,my*T+2,T-4,T-4);
+  ctx.globalAlpha=1; ctx.strokeStyle=ok?'#aada7a':'#da7a5a'; ctx.lineWidth=1; ctx.strokeRect(mx*T+2,my*T+2,T-4,T-4);
 }
 
+// ── MAIN DRAW ─────────────────────────────────────────────────────────────────
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawWorld();
-  drawGrid();
-  drawNodes();
-  drawStructures();
-  drawGatherRadius();
-  drawBuildGhost();
-  drawPlayer();
+  drawWorld(); drawGrid(); drawNodes(); drawStructures();
+  drawGatherRadius(); drawCreatures(); drawBuildGhost(); drawPlayer();
 }
 
-// ── HUD / LOG ────────────────────────────────────────────────────────────────
+// ── HUD ───────────────────────────────────────────────────────────────────────
 function updateHUD() {
   document.getElementById('r-wood').textContent  = `Wood: ${state.res.wood}`;
   document.getElementById('r-stone').textContent = `Stone: ${state.res.stone}`;
   document.getElementById('r-ash').textContent   = `Ash: ${state.res.ash}`;
+  const tamed=creatures.filter(c=>c.state===CS.TAMED||c.state===CS.PENNED).length;
+  document.getElementById('r-tamed').textContent = `Tamed: ${tamed}/${creatures.length}`;
 }
-function setMode(t) { document.getElementById('mode-label').textContent = t; }
-function log(msg) {
-  document.getElementById('log').textContent = msg;
-  state.log = msg;
-}
+function setMode(t) { document.getElementById('mode-label').textContent=t; }
+function log(msg) { document.getElementById('log').textContent=msg; }
 
 // ── LOOP ──────────────────────────────────────────────────────────────────────
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
-loop();
+updateHUD(); // populate tamed count on load
+(function loop() { update(); draw(); requestAnimationFrame(loop); })();
 </script>
 </body>
 </html>
