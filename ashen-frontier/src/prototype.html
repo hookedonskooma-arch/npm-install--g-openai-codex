@@ -227,7 +227,7 @@ for (let i=0;i<4;i++){
 const state={
   player:{x:(W>>1)*T+T/2, y:(H>>1)*T+T/2, spd:2.2, facing:'down', bobPhase:0},
   keys:{}, res:{wood:0,stone:0,ash:0}, structures:[],
-  buildMode:null, mouse:{x:0,y:0}, tick:0,
+  buildMode:null, mouse:{x:0,y:0}, tick:0, dayTick:0,
 };
 
 const BUILD={
@@ -442,6 +442,7 @@ function update(){
   p.x=Math.max(10,Math.min(canvas.width-10,p.x+dx));
   p.y=Math.max(10,Math.min(canvas.height-10,p.y+dy));
   p.bobPhase+=0.08;
+  state.dayTick++;
   for(const c of creatures) updateCreature(c);
   updateParticles();
   updateGlitch();
@@ -733,6 +734,77 @@ function drawBuildGhost(){
   ctx.fillRect(mx*T,my*T,2,T); ctx.fillRect(mx*T+T-2,my*T,2,T);
 }
 
+// ── DAY / NIGHT ───────────────────────────────────────────────────────────────
+const DAY_LEN  = 3600; // ~60s at 60fps
+const DUSK_START = 1440, DUSK_END = 1800, NIGHT_END = 3240; // dawn finishes at 3600
+
+function getNightAlpha(){
+  const t=state.dayTick%DAY_LEN;
+  if(t<DUSK_START) return 0;
+  if(t<DUSK_END)   return (t-DUSK_START)/(DUSK_END-DUSK_START);
+  if(t<NIGHT_END)  return 1;
+  return 1-(t-NIGHT_END)/(DAY_LEN-NIGHT_END);
+}
+function getDayPhase(){
+  const t=state.dayTick%DAY_LEN;
+  if(t<DUSK_START) return 'DAY';
+  if(t<DUSK_END)   return 'DUSK';
+  if(t<NIGHT_END)  return 'NIGHT';
+  return 'DAWN';
+}
+
+// Draw night overlay + campfire halos + moon/sun pixel icon
+function drawNightOverlay(){
+  const na=getNightAlpha();
+
+  // Campfire halos cut through darkness — drawn before the overlay
+  if(na>0.05){
+    for(const s of state.structures){
+      if(s.type!=='campfire') continue;
+      const cx=s.tx*T+T/2, cy=s.ty*T+T/2;
+      const pulse=0.85+Math.sin(state.tick*0.07)*0.15;
+      // Inner warm circle
+      ctx.globalAlpha=na*0.22*pulse;
+      ctx.fillStyle=C1;
+      ctx.beginPath(); ctx.arc(cx,cy,T*3*pulse,0,Math.PI*2); ctx.fill();
+      // Outer dim halo
+      ctx.globalAlpha=na*0.09*pulse;
+      ctx.beginPath(); ctx.arc(cx,cy,T*5.5*pulse,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
+    }
+  }
+
+  // Dark overlay — sits on top of world, dims everything
+  ctx.globalAlpha=na*0.78;
+  ctx.fillStyle='#08080e';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.globalAlpha=1;
+
+  // Sun / moon pixel indicator — bottom-right corner, 18px from edge
+  const ix=canvas.width-22, iy=canvas.height-22;
+  if(na<1){
+    // Sun (visible during day + transitions)
+    ctx.globalAlpha=1-na;
+    ctx.fillStyle=C1;
+    // 6×6 filled circle approximation
+    [[0,2,2],[1,1,4],[2,0,6],[3,0,6],[4,1,4],[5,2,2]].forEach(([r,sc,w])=>ctx.fillRect(ix+sc,iy+r,w,1));
+    // Ray pixels
+    ctx.fillStyle=C2;
+    [[-2,2],[-2,6],[2,-2],[2,10],[7,2],[7,6],[10,2],[10,6]].forEach(([dy,dx])=>ctx.fillRect(ix+dx,iy+dy,2,2));
+    ctx.globalAlpha=1;
+  }
+  if(na>0){
+    // Moon crescent
+    ctx.globalAlpha=na;
+    ctx.fillStyle=C1;
+    [[0,2,4],[1,1,5],[2,0,6],[3,0,6],[4,1,5],[5,2,4]].forEach(([r,sc,w])=>ctx.fillRect(ix+sc,iy+r,w,1));
+    // Bite — cut crescent shape with bg color
+    ctx.fillStyle='#08080e';
+    [[0,4,2],[1,4,3],[2,3,4],[3,3,4],[4,4,3],[5,4,2]].forEach(([r,sc,w])=>ctx.fillRect(ix+sc,iy+r,w,1));
+    ctx.globalAlpha=1;
+  }
+}
+
 function drawFireflies(){
   for(const f of fireflies){
     const cx=f.tx*T+T/2+f.ox, cfy=f.ty*T+T/2+f.oy;
@@ -747,6 +819,7 @@ function drawFireflies(){
 
 // ── MAIN DRAW ─────────────────────────────────────────────────────────────────
 function draw(){
+  if(!state.buildMode) setMode(`— ${getDayPhase()} —`);
   ctx.fillStyle=C3; ctx.fillRect(0,0,canvas.width,canvas.height);
   drawWorld();
   drawNodes();
@@ -757,6 +830,7 @@ function draw(){
   drawPlayer();
   drawParticles();
   drawFireflies();
+  drawNightOverlay();
 }
 function drawCreatures(){ for(const c of creatures) drawCreature(c); }
 
