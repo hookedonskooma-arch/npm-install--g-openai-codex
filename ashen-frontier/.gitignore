@@ -1,0 +1,6 @@
+out/
+assets/images/
+assets/audio/
+remotion-composer/node_modules/
+*.pyc
+__pycache__/
