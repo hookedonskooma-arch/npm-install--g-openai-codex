@@ -1,8 +1,11 @@
 import { create } from 'zustand';
 import { GRID_SIZE, TileType, WorldTile } from '@/types/world';
 import { createTestWorld } from '@/lib/testWorld';
+import { supabase } from '@/lib/supabase';
 
 export type PaletteSelection = TileType | 'eraser';
+
+export type CloudResult = { ok: true } | { ok: false; error: string };
 
 const STORAGE_KEY = 'minas_world_local_save_v1';
 
@@ -26,6 +29,8 @@ type WorldStore = {
   loadWorld: () => boolean;
   clearWorld: () => void;
   loadTestWorld: () => void;
+  saveWorldToCloud: () => Promise<CloudResult>;
+  loadWorldFromCloud: () => Promise<CloudResult>;
 };
 
 export const useWorldStore = create<WorldStore>((set, get) => ({
@@ -66,4 +71,36 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
   clearWorld: () => set({ tiles: createDefaultGrid() }),
 
   loadTestWorld: () => set({ tiles: createTestWorld() }),
+
+  saveWorldToCloud: async () => {
+    if (!supabase) return { ok: false, error: 'Supabase is not configured.' };
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) return { ok: false, error: 'Not signed in.' };
+
+    const { error } = await supabase
+      .from('worlds')
+      .upsert({ user_id: userData.user.id, tiles: get().tiles }, { onConflict: 'user_id' });
+
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  },
+
+  loadWorldFromCloud: async () => {
+    if (!supabase) return { ok: false, error: 'Supabase is not configured.' };
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError || !userData.user) return { ok: false, error: 'Not signed in.' };
+
+    const { data, error } = await supabase
+      .from('worlds')
+      .select('tiles')
+      .eq('user_id', userData.user.id)
+      .is('deleted_at', null)
+      .maybeSingle();
+
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'No cloud save found.' };
+
+    set({ tiles: data.tiles });
+    return { ok: true };
+  },
 }));
