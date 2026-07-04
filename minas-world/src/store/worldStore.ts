@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { GRID_SIZE, TileType, WorldTile } from '@/types/world';
+import { createTestWorld } from '@/lib/testWorld';
 
 export type PaletteSelection = TileType | 'eraser';
 
@@ -24,6 +25,7 @@ type WorldStore = {
   saveWorld: () => void;
   loadWorld: () => boolean;
   clearWorld: () => void;
+  loadTestWorld: () => void;
 };
 
 export const useWorldStore = create<WorldStore>((set, get) => ({
@@ -62,4 +64,6 @@ export const useWorldStore = create<WorldStore>((set, get) => ({
   },
 
   clearWorld: () => set({ tiles: createDefaultGrid() }),
+
+  loadTestWorld: () => set({ tiles: createTestWorld() }),
 }));

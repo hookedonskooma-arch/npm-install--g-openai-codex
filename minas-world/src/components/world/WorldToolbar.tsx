@@ -7,10 +7,22 @@ export function WorldToolbar() {
   const saveWorld = useWorldStore((state) => state.saveWorld);
   const loadWorld = useWorldStore((state) => state.loadWorld);
   const clearWorld = useWorldStore((state) => state.clearWorld);
+  const loadTestWorld = useWorldStore((state) => state.loadTestWorld);
   const [message, setMessage] = useState<string | null>(null);
 
   return (
     <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={() => {
+          loadTestWorld();
+          saveWorld();
+          setMessage('Test world loaded & saved!');
+        }}
+        className="rounded bg-[#004F71] px-4 py-2 text-sm font-semibold text-white hover:bg-[#00354d]"
+      >
+        Load Test World
+      </button>
       <button
         type="button"
         onClick={() => {

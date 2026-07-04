@@ -1,15 +1,8 @@
 'use client';
 
-import { GRID_SIZE, TileType } from '@/types/world';
+import { GRID_SIZE } from '@/types/world';
 import { useWorldStore } from '@/store/worldStore';
-
-const TILE_COLORS: Record<TileType, string> = {
-  grass: 'bg-green-400',
-  path: 'bg-amber-200',
-  water: 'bg-sky-400',
-  house: 'bg-orange-400',
-  tree: 'bg-emerald-700',
-};
+import { TILE_COLORS } from '@/lib/tileColors';
 
 export function TileGrid() {
   const tiles = useWorldStore((state) => state.tiles);
