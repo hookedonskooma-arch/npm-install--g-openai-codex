@@ -15,7 +15,7 @@ export default function WorldsPage() {
       <div className="mb-4">
         <WorldToolbar />
       </div>
-      <div className="flex gap-6">
+      <div className="flex gap-6 overflow-x-auto">
         <TilePalette />
         <TileGrid />
       </div>

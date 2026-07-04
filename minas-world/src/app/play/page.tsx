@@ -65,7 +65,9 @@ export default function PlayPage() {
         {message && <p className="mt-1 text-sm text-slate-600">{message}</p>}
       </div>
 
-      <PlayGrid tiles={tiles} playerX={x} playerY={y} />
+      <div className="overflow-x-auto">
+        <PlayGrid tiles={tiles} playerX={x} playerY={y} />
+      </div>
 
       <p className="mt-4 text-sm text-slate-500">
         Use arrow keys or WASD to walk. Press space near a tree to look for a shiny leaf.
