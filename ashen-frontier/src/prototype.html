@@ -34,7 +34,8 @@
     <div class="res"><div class="ri" style="background:#e8e8d8"></div><span id="r-wood">Wood: 0</span></div>
     <div class="res"><div class="ri" style="background:#a8a890"></div><span id="r-stone">Stone: 0</span></div>
     <div class="res"><div class="ri" style="background:#585850"></div><span id="r-ash">Ash: 0</span></div>
-    <div class="res" style="margin-left:10px"><div class="ri" style="background:#e8e8d8"></div><span id="r-tamed" id="tamed-label">Tamed: 0/0</span></div>
+    <div class="res" style="margin-left:10px"><div class="ri" style="background:#e8e8d8"></div><span id="r-tamed">Tamed: 0/0</span></div>
+    <div class="res" style="margin-left:10px"><div class="ri" id="warmth-ri" style="background:#585850"></div><span id="r-warmth">Warm: 100%</span></div>
     <div id="mode-label">— EXPLORE —</div>
   </div>
   <canvas id="canvas" width="832" height="576"></canvas>
@@ -228,6 +229,7 @@ const state={
   player:{x:(W>>1)*T+T/2, y:(H>>1)*T+T/2, spd:2.2, facing:'down', bobPhase:0},
   keys:{}, res:{wood:0,stone:0,ash:0}, structures:[],
   buildMode:null, mouse:{x:0,y:0}, tick:0, dayTick:0,
+  warmth:100, coldLogged:false,
 };
 
 const BUILD={
@@ -443,6 +445,24 @@ function update(){
   p.y=Math.max(10,Math.min(canvas.height-10,p.y+dy));
   p.bobPhase+=0.08;
   state.dayTick++;
+
+  // ── WARMTH ──────────────────────────────────────────────────────────────────
+  const na=getNightAlpha();
+  const nearFire=state.structures.some(s=>
+    s.type==='campfire'&&
+    Math.hypot(state.player.x-(s.tx*T+T/2),state.player.y-(s.ty*T+T/2))<T*3.5
+  );
+  if(nearFire){
+    state.warmth=Math.min(100,state.warmth+0.5);
+    if(state.coldLogged&&state.warmth>80){log('Campfire warmth restored.');state.coldLogged=false;}
+  } else if(na>0.05){
+    state.warmth=Math.max(0,state.warmth-na*0.035);
+    if(!state.coldLogged&&state.warmth<30){log('Freezing! Find a campfire.');state.coldLogged=true;}
+  }
+  // Speed penalty below 30 warmth — scales from full speed down to 55%
+  state.player.spd=state.warmth<30?2.2*(0.55+0.45*(state.warmth/30)):2.2;
+  updateHUD();
+
   for(const c of creatures) updateCreature(c);
   updateParticles();
   updateGlitch();
@@ -693,7 +713,9 @@ function drawPlayer(){
   ctx.fillRect(Math.round(p.x-9),Math.round(p.y+12),18,4);
   ctx.globalAlpha=0.35; ctx.fillRect(Math.round(p.x-9),Math.round(p.y+12),18,4); ctx.globalAlpha=1;
 
-  drawSpr(PLAYER_SPR,p.x,py,3);
+  // Shiver when near-frozen — 1px alternating offset
+  const shiver=state.warmth<20?(Math.floor(state.tick/2)%2===0?1:-1):0;
+  drawSpr(PLAYER_SPR,p.x+shiver,py,3);
 
   // Capture range ring when wild creature nearby
   const anyWild=creatures.some(c=>[CS.IDLE,CS.ALERT,CS.FLEE].includes(c.state)&&Math.hypot(p.x-c.x,p.y-c.y)<T*3);
@@ -817,6 +839,21 @@ function drawFireflies(){
   }
 }
 
+// ── COLD VIGNETTE ─────────────────────────────────────────────────────────────
+function drawColdVignette(){
+  const na=getNightAlpha();
+  if(na<0.05||state.warmth>=80) return;
+  const intensity=(1-state.warmth/80)*na*0.38;
+  ctx.globalAlpha=intensity;
+  ctx.fillStyle='#08081a';
+  const v=72;
+  ctx.fillRect(0,0,v,canvas.height);             // left
+  ctx.fillRect(canvas.width-v,0,v,canvas.height); // right
+  ctx.fillRect(0,0,canvas.width,v);               // top
+  ctx.fillRect(0,canvas.height-v,canvas.width,v); // bottom
+  ctx.globalAlpha=1;
+}
+
 // ── MAIN DRAW ─────────────────────────────────────────────────────────────────
 function draw(){
   if(!state.buildMode) setMode(`— ${getDayPhase()} —`);
@@ -831,6 +868,7 @@ function draw(){
   drawParticles();
   drawFireflies();
   drawNightOverlay();
+  drawColdVignette();
 }
 function drawCreatures(){ for(const c of creatures) drawCreature(c); }
 
@@ -841,6 +879,12 @@ function updateHUD(){
   document.getElementById('r-ash').textContent   = `Ash: ${state.res.ash}`;
   const t=creatures.filter(c=>c.state===CS.TAMED||c.state===CS.PENNED).length;
   document.getElementById('r-tamed').textContent = `Tamed: ${t}/${creatures.length}`;
+  const w=Math.round(state.warmth);
+  const wEl=document.getElementById('r-warmth');
+  const wRi=document.getElementById('warmth-ri');
+  wEl.textContent=`Warm: ${w}%`;
+  const wCol=w<25?'#e8e8d8':w<55?'#a8a890':'#585850';
+  wEl.style.color=wCol; wRi.style.background=wCol;
 }
 function setMode(t){document.getElementById('mode-label').textContent=t;}
 function log(msg){document.getElementById('log').textContent=msg;}
