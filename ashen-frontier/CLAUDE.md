@@ -95,7 +95,7 @@ HUD label: `— DAY —` / `— DUSK —` / `— NIGHT —` / `— DAWN —` (up
 - [x] Resource cost system + build ghost
 - [x] Day/night cycle — 60s full cycle, overlay + campfire glow + moon/sun icon
 - [x] Campfire — 3-frame pixel fire, firefly particles, night halo
-- [ ] Campfire warmth / rest mechanic (penalty at night without warmth)
+- [x] Campfire warmth / rest mechanic (penalty at night without warmth)
 - [ ] Save/load (localStorage)
 
 ---
